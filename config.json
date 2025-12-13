@@ -6,7 +6,9 @@
   },
 
   "match": {
-    "title_regex": "(?i)\\b(?:Senior|Sr\\.?|Lead|Principal)\\s+(?:Technical\\s+)?Product\\s+Manager\\b|\\bDirector\\b.*\\b(?:Technical\\s+)?Product\\s+Management\\b|\\b(?:Technical\\s+)?Product\\s+Management\\b.*\\bDirector\\b"
+    "title_regex": "(?i)\\b(?:Senior|Sr\\.?|Lead|Principal)\\s+(?:Technical\\s+)?Product\\s+Manager\\b|\\bDirector\\b.*\\b(?:Technical\\s+)?Product\\s+Management\\b|\\b(?:Technical\\s+)?Product\\s+Management\\b.*\\bDirector\\b",
+
+    "title_regex_comment": "This regex matches senior or director-level job titles related to Technical Product Management. Specifically, it matches titles such as: 'Senior Product Manager', 'Sr. Product Manager', 'Lead Product Manager', 'Principal Technical Product Manager', 'Director of Product Management', 'Director, Technical Product Management', and 'Product Management Director'. It allows optional 'Technical' and recognizes both common title structures and alternate word orders."
   },
 
   "run": {
