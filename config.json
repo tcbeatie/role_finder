@@ -1,0 +1,19 @@
+{
+  "user": {
+    "name": "Ted",
+    "report_email": "tcbeatie@gmail.com",
+    "timezone": "America/New_York"
+  },
+
+  "match": {
+    "title_regex": "(?i)\\b(?:Senior|Sr\\.?|Lead|Principal)\\s+(?:Technical\\s+)?Product\\s+Manager\\b|\\bDirector\\b.*\\b(?:Technical\\s+)?Product\\s+Management\\b|\\b(?:Technical\\s+)?Product\\s+Management\\b.*\\bDirector\\b"
+  },
+
+  "run": {
+    "frequency": "daily",
+    "runtime": "04:00:00-05:00",
+    "max_companies_per_batch": 10,
+    "sleep_ms_between_requests": 250,
+    "google_jobs_backstop_enabled": false
+  }
+}
