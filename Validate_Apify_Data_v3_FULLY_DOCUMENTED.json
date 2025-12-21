@@ -1,0 +1,855 @@
+{
+  "name": "Validate Apify Data v3 - FULLY DOCUMENTED",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "dfecf985-eaab-4caa-9a57-4b1e13b0a17e",
+      "name": "When clicking 'Execute workflow'",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE 1: MANUAL TRIGGER\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Start point for the workflow - clicked manually in n8n UI\n\nWhat it does:\n- Generates a workflow execution event when you click 'Execute workflow'\n- Has no parameters or data of its own\n- Simply triggers the next node in the chain\n\nNext node: Load Data from Table\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "jdmbMvkqz81eyyqe",
+          "mode": "list",
+          "cachedResultName": "test",
+          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/jdmbMvkqz81eyyqe"
+        },
+        "returnAll": true
+      },
+      "id": "80d08419-67d6-40bf-9a59-95b1ac7690a5",
+      "name": "Load Data from Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE 2: LOAD DATA FROM TABLE\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Load all companies to validate from n8n Data Table\n\nInput table schema:\n- company_id: Unique identifier for each company\n- company_name: Company name (used for Apify search)\n- domain_guess: Domain we think is correct (to be validated)\n- ats_type: ATS platform we think they use\n\nSettings:\n- returnAll: true \u2192 Gets ALL rows (no limit)\n- For testing: Returns ~4 companies\n- For production: Returns 62+ companies\n\nOutput: Array of company objects, one item per company\n\nNext node: Build Request & Store Context\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 3: BUILD REQUEST & STORE CONTEXT\n// Purpose: Transform company data into Apify API request format while\n//          preserving company context for later validation\n// ============================================================================\n\n// STEP 1: Get all input items (companies) from the previous node\n// $input.all() returns an array of ALL items passed from \"Load Data from Table\"\n// Example: If 3 companies in table, this returns array with 3 items\nconst items = $input.all();\n\n// STEP 2: Transform each company into the format Apify expects\n// .map() is a JavaScript array function that transforms each item in an array\n// For each company, we create a new object with Apify parameters + context\nreturn items.map(item => {\n  // Extract the company data from the n8n item wrapper\n  // Each item has a .json property that contains the actual data\n  const company = item.json;\n  \n  // Return a new n8n item with transformed data\n  return {\n    json: {\n      // === APIFY API PARAMETERS ===\n      // These fields are what Apify's Career Site Job Listing API expects\n      \n      limit: 10,  // Max number of jobs to return per company\n      \n      organizationSearch: [company.company_name],  // Search by company name\n      // Must be an array even for single company, e.g., [\"NVIDIA\"]\n      \n      timeRange: \"6m\",  // Look for jobs posted in last 6 months\n      // Options: \"24h\", \"7d\", \"30d\", \"3m\", \"6m\"\n      \n      descriptionType: \"text\",  // Return job descriptions as plain text\n      // Alternative: \"html\" for HTML-formatted descriptions\n      \n      // === CONTEXT PRESERVATION ===\n      // These fields start with _context_ and are NOT used by Apify\n      // We include them so we can match Apify results back to companies later\n      // Apify ignores fields it doesn't recognize, so these pass through safely\n      \n      _context_company_id: company.company_id,  // Our internal company ID\n      _context_domain_guess: company.domain_guess,  // Domain we THINK is correct\n      _context_ats_type: company.ats_type,  // ATS platform we THINK they use\n      _context_company_name: company.company_name  // Company name for reference\n    }\n  };\n});\n\n// OUTPUT: Array of 3 items (for 3 companies), each formatted for Apify\n// Example output:\n// [\n//   { json: { limit: 10, organizationSearch: [\"SimSpace\"], timeRange: \"6m\", ... } },\n//   { json: { limit: 10, organizationSearch: [\"KAYAK\"], timeRange: \"6m\", ... } },\n//   { json: { limit: 10, organizationSearch: [\"Open AI\"], timeRange: \"6m\", ... } }\n// ]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        0
+      ],
+      "id": "bab8157d-ab86-466e-8ba0-32f51efbd5a2",
+      "name": "Build Request & Store Context",
+      "COMMENT": "NODE 3: This code node transforms our company data into the format that Apify expects, while preserving context fields we'll need later. The key insight: we add _context_ fields that Apify ignores but we can use downstream."
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "s3dtSTZSZWFtAVLn5",
+          "mode": "list",
+          "cachedResultName": "Career Site Job Listing API (fantastic-jobs/career-site-job-listing-api)",
+          "cachedResultUrl": "https://console.apify.com/actors/s3dtSTZSZWFtAVLn5/input"
+        },
+        "customBody": "={{ $json }}",
+        "timeout": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        960,
+        16
+      ],
+      "id": "04dde34b-5754-459e-a08d-8d97e984c59e",
+      "name": "Run Apify",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE 4: RUN APIFY API\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Call Apify Career Site Job Listing API to get actual job data\n\nWhat happens:\n1. Receives ONE company request (due to loop)\n2. Makes API call to Apify with company name\n3. Apify searches its database for job listings\n4. Returns 0-10 job postings for that company\n\nCritical settings:\n- alwaysOutputData: true \u2192 Outputs data even if 0 jobs found\n- onError: continueErrorOutput \u2192 Doesn't crash workflow on API errors\n- customBody: ={{ $json }} \u2192 Sends all fields from previous node\n\nTwo outputs:\n1. Success branch (top): API call succeeded (even if 0 jobs)\n2. Error branch (bottom): API call failed (network, auth, etc.)\n\nExample scenarios:\n- SimSpace: Returns 8 jobs \u2192 Success branch with 8 items\n- Fake company: Returns 0 jobs \u2192 Success branch with 0 items\n- API timeout: \u2192 Error branch with error object\n\nParallel processing:\nFrom Success branch, workflow splits into TWO parallel paths:\n1. Main path: IF \u2192 Validate domains \u2192 Insert validation results\n2. Side path: Save Apify data \u2192 Insert raw job data\n\nBoth paths execute simultaneously during each loop iteration\n\nCost: ~$4 per 1,000 jobs fetched\n\nNext nodes:\n- Success \u2192 IF node (check if jobs exist) + Save Apify data (parallel)\n- Error \u2192 Log Error\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "alwaysOutputData": true,
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "AVesD0GKdfEOo8qV",
+          "name": "Apify account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE: VALIDATE DOMAINS (SIMPLIFIED FOR LOOP)\n// Purpose: Validate domain for CURRENT company in loop iteration\n//          Since loop processes one company at a time, ALL jobs belong to that company\n// ============================================================================\n\n// Get ALL jobs from current Apify call (all belong to current company)\nconst allJobs = $input.all().map(item => item.json);\n\n// Get the CURRENT company being processed\nconst currentCompany = $('Loop Over Items').item.json;\nconst domainGuess = currentCompany._context_domain_guess;\n\n// Build result object\nlet result = {\n  company_id: currentCompany._context_company_id,\n  company_name: currentCompany._context_company_name,\n  domain_guess: domainGuess,\n  ats_type: currentCompany._context_ats_type,\n  jobs_found: allJobs.length,\n  status: 'unknown',\n  domain_verified: null,\n  domains_seen: [],\n  ats_platforms_seen: []\n};\n\n// If no jobs found, mark as not_found\nif (allJobs.length === 0) {\n  result.status = 'not_found';\n  result.note = 'No jobs found for this company';\n} else {\n  // Collect all unique domains and ATS platforms from jobs\n  const domainsSet = new Set();\n  const atsSet = new Set();\n  \n  allJobs.forEach(job => {\n    // Collect company domains (domain_derived is the company domain)\n    if (job.domain_derived) domainsSet.add(job.domain_derived);\n    \n    // Also check organization_url as fallback for company domain\n    if (job.organization_url) {\n      try {\n        const url = new URL(job.organization_url);\n        domainsSet.add(url.hostname.replace('www.', ''));\n      } catch (e) {\n        // Invalid URL, skip\n      }\n    }\n    \n    // Collect ATS platforms\n    if (job.source) atsSet.add(job.source);\n  });\n  \n  result.domains_seen = Array.from(domainsSet);\n  result.ats_platforms_seen = Array.from(atsSet);\n  \n  // Set verified domain (prefer domain_derived, fallback to extracted from organization_url)\n  if (allJobs[0].domain_derived) {\n    result.domain_verified = allJobs[0].domain_derived;\n  } else if (allJobs[0].organization_url) {\n    try {\n      const url = new URL(allJobs[0].organization_url);\n      result.domain_verified = url.hostname.replace('www.', '');\n    } catch (e) {\n      result.domain_verified = domainGuess; // Fallback to our guess\n    }\n  } else {\n    result.domain_verified = domainGuess;\n  }\n  \n  // Validate: check if our guess matches ANY company domain we've seen\n  if (result.domains_seen.includes(domainGuess)) {\n    result.status = 'guess_correct';\n  } else {\n    result.status = 'guess_wrong';\n    result.note = `Expected \"${domainGuess}\", found \"${result.domain_verified}\"`;\n  }\n}\n\n// Return single result for current company\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        -96
+      ],
+      "id": "2d3d3a86-e160-4c74-b005-959901755a13",
+      "name": "Validate domains",
+      "COMMENT": "NODE 5: This is the most complex node. It solves the key problem: Apify returns mixed results, so we need to group jobs back to their companies using domain_derived, then validate our domain guesses."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 6: CONVERT ARRAYS TO STRINGS\n// Purpose: Transform validation data into database-friendly format\n//          Arrays need to be converted to strings for table storage\n// ============================================================================\n\n// STEP 1: Get all validation results from previous node\n// This will be 3 items (one per company)\nconst items = $input.all();\n\n// STEP 2: Transform each validation result for database insertion\n// .map() transforms each item in the array\nreturn items.map(inputItem => {\n  // Extract the validation data\n  const item = inputItem.json;\n  \n  // Return transformed data in n8n format\n  return {\n    json: {\n      // === FIELDS THAT DON'T NEED TRANSFORMATION ===\n      company_id: item.company_id,\n      company_name: item.company_name,\n      domain_verified: item.domain_verified,\n      domain_guess: item.domain_guess,\n      status: item.status,\n      jobs_found: item.jobs_found,\n      \n      // === ATS TYPE EXTRACTION ===\n      // item.ats_platforms_seen is an array like [\"greenhouse\", \"workday\"]\n      // We take the first one: [0]\n      // The ?. is optional chaining - prevents error if array is empty\n      // The || '' means: if undefined/null, use empty string instead\n      ats_type: item.ats_platforms_seen?.[0] || '',\n      \n      // === ARRAY TO STRING CONVERSION ===\n      // .join(', ') converts array to comma-separated string\n      // Example: [\"simspace.com\", \"jobs.simspace.com\"] \u2192 \"simspace.com, jobs.simspace.com\"\n      domains_seen: item.domains_seen.join(', '),\n      ats_platforms_seen: item.ats_platforms_seen.join(', '),\n      \n      // === OPTIONAL FIELDS ===\n      // If note doesn't exist, use empty string\n      note: item.note || '',\n      \n      // === TIMESTAMP ===\n      // new Date().toISOString() creates current timestamp in ISO format\n      // Example: \"2025-12-18T14:05:22.123Z\"\n      verified_at: new Date().toISOString()\n    }\n  };\n});\n\n// OUTPUT: Array of 3 items, ready for database insertion\n// All array fields are now strings, compatible with SQL/table storage"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        -96
+      ],
+      "id": "b7e7ecf3-6924-40b0-aaf7-4833e7dd56eb",
+      "name": "Convert arrays to strings",
+      "COMMENT": "NODE 6: This node prepares data for database insertion. The key transformation: arrays like ['domain1', 'domain2'] become strings like 'domain1, domain2' because database text fields can't store arrays directly."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "ba4a8da8-23eb-4cc3-96f1-44d43566ca1f",
+      "name": "Loop Over Items",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE: LOOP OVER ITEMS (Split In Batches)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Process companies ONE AT A TIME for fault tolerance\n\nHow it works:\n- Batch Size: 1 (default) - processes one company per iteration\n- Takes all companies and loops through them\n- Each loop iteration processes ONE company\n- If one company fails, others continue\n\nWhy we use a loop:\n- FAULT TOLERANCE: If company #3 fails, companies #4-62 still process\n- INCREMENTAL SAVING: Results saved after each company\n- PROGRESS TRACKING: Can see real-time progress\n- COST CONTROL: Know exactly how many API calls succeeded\n\nTwo outputs:\n1. Loop branch (bottom pin): Fires for EACH company (runs 62 times)\n2. Done branch (top pin): Fires ONCE after ALL companies processed\n\nLoop mechanism:\n- Companies that complete successfully flow back to this node\n- Node advances to next company automatically\n- When all companies processed, Done branch activates\n\nCurrent company access:\n- Inside the loop: $('Loop Over Items').item.json\n- This gives you the current company being processed\n\nNext nodes:\n- Loop branch \u2192 Run Apify (processes current company)\n- Done branch \u2192 Empty (no post-processing needed)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 7: LOG ERROR\n// Purpose: Format Apify API errors for database insertion\n// ============================================================================\n\n// Get current company from the loop (NOT from Build Request)\nconst currentCompany = $('Loop Over Items').item.json;\n\n// Get error details from Run Apify's error output\nconst errorInfo = $json.error || { message: 'Unknown error' };\n\nreturn [{\n  json: {\n    company_id: currentCompany._context_company_id,\n    company_name: currentCompany._context_company_name,\n    domain_guess: currentCompany._context_domain_guess,\n    status: 'api_error',\n    jobs_found: 0,\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',  // Added - required field\n    note: `Apify API Error: ${errorInfo.message || JSON.stringify(errorInfo)}`,\n    verified_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        288
+      ],
+      "id": "f8c03dde-e9dd-4646-8336-8c09a04e9b89",
+      "name": "Log Error"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "S0FM0TDtFyFGe6OA",
+          "mode": "list",
+          "cachedResultName": "domain verification",
+          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/S0FM0TDtFyFGe6OA"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_id": "={{ $json.company_id }}",
+            "company_name": "={{ $json.company_name }}",
+            "domain_guess": "={{ $json.domain_guess }}",
+            "domain_verified": "={{ $json.domain_verified }}",
+            "domains_seen": "={{ $json.domains_seen }}",
+            "ats_platforms_seen": "={{ $json.ats_platforms_seen }}",
+            "verified_at": "={{ now }}",
+            "note": "={{ $json.note }}",
+            "status": "={{ $json.status }}",
+            "ats_type": "={{ $json.ats_type }}",
+            "jobs_found": "={{ $json.jobs_found }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain_guess",
+              "displayName": "domain_guess",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ats_type",
+              "displayName": "ats_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "jobs_found",
+              "displayName": "jobs_found",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domains_seen",
+              "displayName": "domains_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ats_platforms_seen",
+              "displayName": "ats_platforms_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "verified_at",
+              "displayName": "verified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        288
+      ],
+      "id": "564cc5f3-3a48-4a61-b504-92b629c54b77",
+      "name": "Insert good row",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE: INSERT GOOD ROW (Validation Results)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Save successful validation results to domain_verification table\n\nThis node receives data from:\n- Validate domains \u2192 Convert arrays to strings \u2192 HERE\n- Log no results \u2192 HERE\n\nInput data includes:\n- company_id, company_name, domain_guess\n- domain_verified (actual domain found)\n- status (guess_correct, guess_wrong, or no_results)\n- jobs_found (count of jobs)\n- domains_seen (comma-separated string)\n- ats_platforms_seen (comma-separated string)\n- note (additional context)\n- verified_at (timestamp)\n\nField mapping:\nThe ={{ $json.field_name }} syntax tells n8n:\n\"Read the value of field_name from the incoming data\"\n\nExample:\n- ={{ $json.company_id }} \u2192 reads \"simspace\" from input\n- ={{ $json.status }} \u2192 reads \"guess_correct\" from input\n- ={{ now }} \u2192 generates current timestamp\n\nDatabase operation:\n- Operation: INSERT (creates new row)\n- Each execution inserts ONE row per company\n- Returns the inserted row as output\n\nNext node: Loop Over Items (loops back for next company)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "S0FM0TDtFyFGe6OA",
+          "mode": "list",
+          "cachedResultName": "domain verification",
+          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/S0FM0TDtFyFGe6OA"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_id": "={{ $json.company_id }}",
+            "company_name": "={{ $json.company_name }}",
+            "domain_guess": "={{ $json.domain_guess }}",
+            "domain_verified": "={{ $json.domain_verified }}",
+            "domains_seen": "={{ $json.domains_seen }}",
+            "ats_platforms_seen": "={{ $json.ats_platforms_seen }}",
+            "verified_at": "={{ now }}",
+            "note": "={{ $json.note }}",
+            "ats_type": "={{ $json.ats_type }}",
+            "status": "={{ $json.status }}",
+            "jobs_found": "={{ $json.jobs_found }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain_guess",
+              "displayName": "domain_guess",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain_verified",
+              "displayName": "domain_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ats_type",
+              "displayName": "ats_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "jobs_found",
+              "displayName": "jobs_found",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domains_seen",
+              "displayName": "domains_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ats_platforms_seen",
+              "displayName": "ats_platforms_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "verified_at",
+              "displayName": "verified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        288
+      ],
+      "id": "c12b3bc4-1875-43f1-8189-14f39077c8d5",
+      "name": "Insert bad row",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE: INSERT BAD ROW (Validation Results - Errors)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Save error/no-result cases to domain_verification table\n\nThis node receives data from two sources:\n1. Log no results \u2192 Companies where API succeeded but returned 0 jobs\n2. Log Error \u2192 Companies where API call failed completely\n\nBoth use the SAME table as \"Insert good row\" but with different status values:\n- no_results: API worked but company not found in Apify\n- api_error: API call failed (timeout, auth error, etc.)\n\nAll validation results (good and bad) end up in the same table for easy querying\n\nNext node: Loop Over Items (loops back for next company)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a2ed7fda-9f49-4751-838b-b07648ec9cf3",
+              "leftValue": "={{ !!($json && ($json.id || $json.title || $json.organization)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        -80
+      ],
+      "id": "92bf88d8-5eb7-4ac2-b28f-f4a4cb9f3ad8",
+      "name": "If",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE: IF (Check for Real Job Data)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Determine if Apify returned actual job data or empty results\n\nThe problem:\n- Apify returns 0 jobs \u2192 node outputs empty item or no items\n- We need to distinguish between \"has jobs\" vs \"no jobs\"\n\nCondition explained:\n{{ !!($json && ($json.id || $json.title || $json.organization)) }}\n\nBreakdown:\n- $json \u2192 The current item from Run Apify\n- $json.id || $json.title || $json.organization \u2192 Check if any job fields exist\n- Real jobs have these fields; empty results don't\n- !! \u2192 Double negation converts to boolean (true/false)\n\nWhy we need !!:\n- $json.id might return \"1919889452\" (a string)\n- IF node needs true/false, not a string\n- !! converts any truthy value \u2192 true, any falsy value \u2192 false\n\nDecision logic:\n- TRUE: Item has id OR title OR organization \u2192 Real job data found\n  \u2192 Route to: Validate domains\n- FALSE: Item missing all three fields \u2192 No job data\n  \u2192 Route to: Log no results\n\nTwo outputs:\n- True branch: Has jobs \u2192 Validate domains\n- False branch: No jobs \u2192 Log no results\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// LOG NO RESULTS\n// Purpose: Handle successful API calls that returned 0 jobs\n// ============================================================================\n\nconst currentCompany = $('Loop Over Items').item.json;\n\nreturn [{\n  json: {\n    company_id: currentCompany._context_company_id,\n    company_name: currentCompany._context_company_name,\n    domain_guess: currentCompany._context_domain_guess,\n    status: 'no_results',\n    jobs_found: 0,\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',\n    note: 'API succeeded but returned 0 jobs - company not found in Apify or name mismatch',\n    verified_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        96
+      ],
+      "id": "6ab651a2-bb30-47da-b371-1b8a8d9fb44d",
+      "name": "Log no results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// SAVE RAW JOBS - ONE ROW PER JOB WITH KEY FIELDS\n// Purpose: Extract key fields for searchability, keep full JSON as backup\n// ============================================================================\n\nconst currentJobs = $input.all().map(item => item.json);\nconst currentCompany = $('Loop Over Items').item.json;\n\n// Return one row per job with extracted fields\nreturn currentJobs.map(job => ({\n  json: {\n    // Company context\n    company_id: currentCompany._context_company_id,\n    company_name: currentCompany._context_company_name,\n    domain_guess: currentCompany._context_domain_guess,\n    \n    // Job identifiers\n    job_id: job.id || '',\n    job_title: job.title || '',\n    organization: job.organization || '',\n    organization_url: job.organization_url || '',\n    \n    // Dates\n    date_posted: job.date_posted || null,\n    date_created: job.date_created || null,\n    \n    // Location (extract first location if available)\n    location_locality: job.locations_raw?.[0]?.address?.addressLocality || '',\n    location_region: job.locations_raw?.[0]?.address?.addressRegion || '',\n    location_country: job.locations_raw?.[0]?.address?.addressCountry || '',\n    remote_derived: job.remote_derived || false,\n    \n    // Salary (AI-extracted)\n    salary_currency: job.ai_salary_currency || '',\n    salary_min: job.ai_salary_minvalue || null,\n    salary_max: job.ai_salary_maxvalue || null,\n    salary_unit: job.ai_salary_unittext || '',\n    \n    // Job details\n    employment_type: Array.isArray(job.employment_type) ? job.employment_type.join(', ') : '',\n    experience_level: job.ai_experience_level || '',\n    work_arrangement: job.ai_work_arrangement || '',\n    \n    // Source/ATS\n    source_ats: job.source || '',\n    source_domain: job.source_domain || '',\n    domain_derived: job.domain_derived || '',\n    \n    // Links\n    job_url: job.url || '',\n    \n    // Full JSON backup (entire job object as string)\n    job_data_full: JSON.stringify(job)\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        96
+      ],
+      "id": "38d733f8-ddb8-4bf0-93ad-f47acecc624c",
+      "name": "Save Apify data"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "SekZJz2lfLFWAM2f",
+          "mode": "list",
+          "cachedResultName": "apify_jobs_raw",
+          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/SekZJz2lfLFWAM2f"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_id": "={{ $json.company_id }}",
+            "domain_derived": "={{ $json.domain_derived }}",
+            "company_name": "={{ $json.company_name }}",
+            "job_id": "={{ $json.job_id }}",
+            "date_posted": "={{ $json.date_posted }}",
+            "job_title": "={{ $json.job_title }}",
+            "locality": "={{ $json.location_locality }}",
+            "remote_derived": "={{ $json.remote_derived }}",
+            "region": "={{ $json.location_region }}",
+            "salary_min": "={{ $json.salary_min }}",
+            "job_url": "={{ $json.job_url }}",
+            "salary_max": "={{ $json.salary_max }}",
+            "job_data": "={{ $json.job_data_full }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain_derived",
+              "displayName": "domain_derived",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date_posted",
+              "displayName": "date_posted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "locality",
+              "displayName": "locality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "region",
+              "displayName": "region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "remote_derived",
+              "displayName": "remote_derived",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "salary_min",
+              "displayName": "salary_min",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "salary_max",
+              "displayName": "salary_max",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_url",
+              "displayName": "job_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_data",
+              "displayName": "job_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        96
+      ],
+      "id": "f6881ddf-0ce3-43a7-8b41-82b4bfd2234c",
+      "name": "Insert row",
+      "COMMENT": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nNODE: INSERT ROW (Raw Job Data)\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nPurpose: Save extracted job data to apify_jobs_raw table\n\nThis runs in PARALLEL with the validation flow (runs simultaneously)\n\nInput: Receives data from \"Save Apify data\" node\n- ONE ROW PER JOB (not per company)\n- Each job has extracted fields + full JSON backup\n\nKey fields saved:\n- Company info: company_id, company_name, domain_guess\n- Job basics: job_id, job_title, organization\n- Location: locality, region, remote_derived\n- Salary: salary_min, salary_max\n- Links: job_url\n- Full backup: job_data (complete JSON)\n\nWhy we save this:\n- Validation table has summary info\n- This table has detailed job data\n- Allows queries like: \"Find all remote jobs paying $200K+\"\n- job_data field preserves ALL original Apify data\n\nThis path doesn't loop back - it just saves and ends\nThe main validation path handles the loop-back\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Load Data from Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Data from Table": {
+      "main": [
+        [
+          {
+            "node": "Build Request & Store Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Request & Store Context": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Apify": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Apify data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate domains": {
+      "main": [
+        [
+          {
+            "node": "Convert arrays to strings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert arrays to strings": {
+      "main": [
+        [
+          {
+            "node": "Insert good row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Run Apify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Insert bad row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert good row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert bad row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Validate domains",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log no results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log no results": {
+      "main": [
+        [
+          {
+            "node": "Insert bad row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Apify data": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "99c19c81-b960-4559-b002-cbcc1f4c1e14",
+  "meta": {
+    "instanceId": "7534cf3caceb89a410b24188fae76f3b891a0be6d8178ba8a99d892ed4a4777d"
+  },
+  "id": "Jmy9lRbjIBpmAz8g",
+  "tags": []
+}
