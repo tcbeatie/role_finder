@@ -1,0 +1,361 @@
+{
+  "name": "Loop Jobs - FULLY DOCUMENTED",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        496
+      ],
+      "id": "e7aa11c5-8ad1-41ae-a41e-ae1064cdfcb2",
+      "name": "When clicking 'Execute workflow'",
+      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 1: WORKFLOW TRIGGER (SUB-WORKFLOW ENTRY POINT)\n═══════════════════════════════════════════════════════════════════════════\nThis is the entry point for the Job workflow, which is called as a \nSUB-WORKFLOW from the parent \"Loop Companies\" workflow.\n\nHow this workflow gets triggered:\n1. Manual execution: Click \"Execute workflow\" button in n8n UI for testing\n2. Sub-workflow call: Parent workflow calls this via Execute Workflow node\n   - Parent passes job data with _context_ fields\n   - This workflow processes jobs independently\n   - Returns control to parent when complete\n\nWhat data arrives here:\nWhen called from parent workflow, receives job items with:\n- All Apify job fields (id, title, salary, location, description, etc.)\n- _context_workflow_run_id: Parent workflow's execution ID\n- _context_company_id: Company identifier\n- _context_company_name: Company display name\n- _context_domain: Company domain\n\nWorkflow purpose:\nProcess jobs ONE AT A TIME through:\n1. AI evaluation (Claude Sonnet 4.5)\n2. Response parsing and structuring\n3. Merging AI evaluation with raw job data\n4. HTML card generation\n5. Email queue storage\n\nArchitectural context:\nOLD (v5): This logic was nested INSIDE the company workflow\nNEW: Separate workflow for clean separation of concerns\n\nNext node: Loop Over Jobs\n═══════════════════════════════════════════════════════════════════════════"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -368,
+        496
+      ],
+      "id": "156adb24-9a27-4728-8896-d4ef10fde67a",
+      "name": "Loop Over Jobs",
+      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 2: LOOP OVER JOBS (JOB PROCESSING ORCHESTRATOR)\n═══════════════════════════════════════════════════════════════════════════\nProcesses jobs ONE AT A TIME using a loop pattern.\n\nWhat is this loop doing?\n- Takes array of jobs passed from parent workflow (e.g., 8 jobs from Anthropic)\n- Processes each job individually through AI evaluation\n- Batch size: 1 (default) means one job per loop iteration\n\nWhy loop over jobs individually?\n1. AI API RATE LIMITING: Avoid overwhelming Claude API with parallel requests\n2. COST TRACKING: Know exact number of AI calls and costs\n3. PROGRESS MONITORING: See real-time progress through jobs\n4. ERROR ISOLATION: If job #5 fails, jobs #6-8 still process\n5. SEQUENTIAL EVALUATION: Each job gets full AI attention\n\nHow the loop works:\n┌─ Loop iteration 1: Job 1 (\"Senior PM at Anthropic\")\n│  ├─ Add Resume Context → AI Evaluation → Parse → Merge → Format → Save\n│  └─ Return to loop node\n│\n├─ Loop iteration 2: Job 2 (\"Lead PM at Anthropic\")\n│  ├─ Add Resume Context → AI Evaluation → Parse → Merge → Format → Save\n│  └─ Return to loop node\n│\n└─ All jobs done → Done branch activates\n\nTwo outputs (pins on the node):\n1. DONE BRANCH (top pin):\n   - Fires ONCE after ALL jobs for current company complete\n   - Routes to: Workflow Complete\n   - Signals to parent workflow: \"All jobs processed, ready for next company\"\n   \n2. LOOP BRANCH (bottom pin):\n   - Fires ONCE PER JOB\n   - Routes to: Add Resume Context\n   - This is where AI evaluation happens\n\nAccessing current job in downstream nodes:\n$('Loop Over Jobs').item.json\n// This gives you the current job being processed\n// Example: { id: \"12345\", title: \"Senior PM\", _context_workflow_run_id: 67890, ... }\n\nTiming example:\nIf Anthropic has 8 jobs:\n- Loop executes 8 times (once per job)\n- Each iteration: 2-5 seconds for AI evaluation\n- Total: 16-40 seconds for all 8 jobs\n- Then Done branch fires once\n\nKey architectural difference from v5:\nOLD: This was the INNER loop nested inside company loop\n     - Both loops in same workflow\n     - Complex nested loop logic\n     \nNEW: This is the ONLY loop in this workflow\n     - Company loop is in parent workflow\n     - Cleaner separation\n     - Each workflow has single responsibility\n\nLoop-back path:\nSave to Email Queue → Loop Over Jobs → (next job iteration)\n\nWhen all jobs complete:\nLoop Over Jobs (Done) → Workflow Complete → Return to parent\n\nNext nodes:\n- Loop branch → Add Resume Context (process current job)\n- Done branch → Workflow Complete (signal completion to parent)\n═══════════════════════════════════════════════════════════════════════════"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 3: ADD RESUME CONTEXT\n// Attaches candidate resume/profile to each job for AI evaluation\n// ============================================================================\n\n// THE PROBLEM:\n// The AI needs TWO pieces of information to evaluate job fit:\n// 1. Job details (already in $json from Loop Over Jobs)\n// 2. Candidate profile (needs to be added)\n\n// Without the profile, AI can't assess match quality.\n// This node enriches each job with the complete candidate profile.\n\nreturn [{\n  json: {\n    // === PRESERVE ALL JOB FIELDS ===\n    // The spread operator (...) copies all fields from current job\n    // This includes:\n    // - Apify fields: id, title, salary, location, description, etc.\n    // - Context fields: _context_workflow_run_id, _context_company_id, etc.\n    ...$json,\n\n    // === ADD CANDIDATE PROFILE ===\n    // This is the candidate's complete resume and target criteria\n    // The AI will compare this against the job to assess fit\n    candidate_profile: `\nTED BEATIE - PRODUCT LEADER PROFILE\n\nSUMMARY:\n- 15+ years Technical Product Management & Cloud Infrastructure leadership\n- B2B/B2B2C EdTech/SaaS, Telecom, and Travel sectors\n- Companies: 10 to 3,500+ employees, up to $2.5B annual revenue\n- Led backend product strategy, cloud systems architecture, engineering, and database development\n- Technical services used by up to 50,000 global customers\n\nKEY ACHIEVEMENTS:\n- Negotiated educational AI contract with OpenAI for enterprise ChatGPT/API access\n- Delivered multi-cloud (AWS/Azure) cybersecurity lab provisioning system in 6 months\n- Automated global student evaluations saving $400k/year\n- Built FTTH network mapping/monitoring systems serving 4,000+ homes\n\nTECHNICAL EXPERTISE:\n- Cloud & Infrastructure: AWS, Azure, Terraform, Kubernetes, multi-cloud architecture\n- API & Integrations: RESTful APIs, SOAP-to-REST transitions, third-party API integrations\n- Product Tools: Lucidchart, Visio, Miro, Figma, Salesforce, Smartsheet, Jira\n- AI Tools: ChatGPT, Claude\n- Systems: Backend systems, database development, provisioning automation\n\nRECENT EXPERIENCE:\n\nSANS Institute (Mar 2021 - May 2025)\nDirector of Technical Product Management, Cybersecurity Courseware Delivery\n- Led enterprise architecture transformation for global EdTech SaaS company\n- Directed 3 engineering teams, coordinated cross-functional workstreams\n- Designed centralized course manifest database for 75 courses across 6 product lines\n- Established on-demand cloud provisioning for AWS/Azure cyber ranges\n- Drove API integrations with OpenAI ChatGPT and 10+ third-party tools\n- Secured VMware distributor agreement, FedEx/DHL shipping integrations\n\nOpenFiber/Open5G (May 2018 - Mar 2021)\nHead of Product - FTTH Network Management\n- Built network configuration management and visualization tools\n- Led 6 engineers through Agile development of platform and provisioning automation\n- Data integrity audits across 4,000+ endpoints\n\nTravelport (Dec 2011 - May 2018)\nTechnical Product Manager, Infrastructure & Integrations\n- Governed development of RESTful APIs connecting 65,000 OTAs in 165 countries\n- Mapped data architecture handling 200M+ bookings/year\n- Championed SOAP-to-REST transition and SAFe implementation\n- Moderated community of 70+ application developers\n\nTARGET ROLE CRITERIA:\n- Titles: Senior/Lead/Principal Technical Product Manager, Director of Technical Product Management\n- Focus: Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems\n- Technical Depth: Backend systems, integrations, developer tools\n- Location: Remote, Hybrid NYC Metro, or Hybrid Bay Area\n- Minimum Compensation: $190,000/year (ignore if not specified)\n\nIDEAL FIT INDICATORS:\n- Technical/Platform/Infrastructure PM roles\n- B2B SaaS or Developer Tools companies\n- Senior+ level (not Associate/Junior)\n- Systems-minded product work\n- API/Integration heavy\n- Cloud infrastructure focus\n- Strong technical depth required\n    `\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// Job data enriched with candidate_profile field\n// Example:\n// {\n//   id: \"12345\",\n//   title: \"Senior Technical Product Manager\",\n//   salary_min: 200000,\n//   description_text: \"...\",\n//   _context_workflow_run_id: 67890,\n//   candidate_profile: \"<full resume text>\"\n// }\n\n// WHY THIS ARCHITECTURE:\n// Profile is added HERE instead of earlier because:\n// 1. Keeps profile out of raw job storage (saves database space)\n// 2. Profile only needed for AI evaluation (not for raw storage)\n// 3. Makes testing easier (can swap profiles without changing job data)\n// 4. Clear separation: job data vs. evaluation context\n\n// PRODUCTION NOTE:\n// In production, this could be enhanced to:\n// - Load profile from database or file\n// - Support multiple candidate profiles\n// - Include custom evaluation criteria per candidate\n// - A/B test different profile formats\n\n// WHY SPLIT INTO TWO PARALLEL PATHS AFTER THIS:\n// After adding profile, the job data flows to TWO destinations:\n// \n// Path A (AI Evaluation): Message a model\n// - Slow path (2-5 seconds per job)\n// - Expensive (AI API costs)\n// - Returns: AI evaluation with scores and reasoning\n// \n// Path B (Raw Data Passthrough): Direct to Merge\n// - Fast path (instant)\n// - Free (no processing)\n// - Preserves: Complete job data for merging\n// \n// Why both paths?\n// The Merge node needs BOTH:\n// 1. AI evaluation results (from Path A)\n// 2. Complete job data (from Path B)\n// \n// Without Path B, we'd lose access to job details after AI evaluation\n// because AI node only returns its evaluation, not the original job.\n\n// Next nodes (parallel split):\n// - Path A: Message a model (AI evaluation)\n// - Path B: Merge input 2 (preserve raw data for merging)\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        640
+      ],
+      "id": "9c26f437-69b2-4299-b21f-5107e5894a66",
+      "name": "Add Resume Context"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Candidate Profile:\n{{ $json.candidate_profile }}\n\nJob Details:\n- Job ID: {{ $json.id }}\n- Title: {{ $json.title }}\n- Company: {{ $json.organization }}\n- Location: {{ $json.locations_derived || $json.location_locality }}, {{ $json.regions_derived || $json.location_region }} (Remote: {{ $json.remote_derived }})\n- Work Arrangement: {{ $json.ai_work_arrangement }}\n- Salary: {{ $json.ai_salary_minvalue }} - {{ $json.ai_salary_maxvalue }} {{ $json.ai_salary_currency }}\n- Experience Level: {{ $json.ai_experience_level }}\n- URL: {{ $json.url }}\n\nJob Description:\n{{ $json.description_text }}\n\nEvaluate this job against the candidate's profile and return ONLY valid JSON with this exact structure:\n\n{\n  \"job_id\": \"{{ $json.id }}\",\n  \"overall_score\": <number 1-10>,\n  \"recommendation\": \"<EXCELLENT_MATCH|GOOD_MATCH|CONSIDER|POOR_FIT|REJECT>\",\n  \"detailed_scores\": {\n    \"seniority_match\": <number 1-10>,\n    \"domain_match\": <number 1-10>,\n    \"technical_depth\": <number 1-10>,\n    \"location_fit\": <number 1-10>,\n    \"compensation\": <number 1-10>\n  },\n  \"reasoning\": {\n    \"strengths\": [<array of 3-6 specific strengths>],\n    \"weaknesses\": [<array of key concerns or gaps>],\n    \"key_mismatches\": [<array of critical misalignments if any>]\n  },\n  \"match_explanation\": \"<2-4 sentence summary explaining the overall assessment>\"\n}\n\nCRITICAL: You must include \"job_id\": \"{{ $json.id }}\" as the first field in your JSON response.\n\nScoring criteria:\n- Seniority: Senior/Lead/Principal/Director level roles (not Associate/Junior)\n- Domain: Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems\n- Technical Depth: Backend systems, integrations, developer tools expertise required\n- Location: Remote, Hybrid NYC Metro, or Hybrid Bay Area (10=perfect, 0=dealbreaker)\n- Compensation: $190k+ is threshold (10 if well above, 0 if below)\n\nReturn only the JSON, no markdown formatting."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        112,
+        496
+      ],
+      "id": "474a057b-0f18-4ca5-8077-d55e83fc0a45",
+      "name": "Message a model",
+      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 4: AI JOB EVALUATION (CLAUDE SONNET 4.5)\n═══════════════════════════════════════════════════════════════════════════\nSends job + candidate profile to Claude AI for intelligent evaluation.\n\nWhat this node does:\nCalls Anthropic's Claude API with:\n1. Complete candidate profile (resume, experience, target criteria)\n2. Full job details (title, company, salary, location, description)\n3. Structured evaluation prompt with scoring dimensions\n\nAI Model: claude-sonnet-4-5-20250929\n- Anthropic's Claude Sonnet 4.5 model\n- Fast, high-quality reasoning\n- Excellent at structured output (JSON)\n- Strong at comparative analysis\n\nPrompt engineering breakdown:\nThe prompt is carefully structured to extract:\n\n1. OVERALL ASSESSMENT:\n   - overall_score: 1-10 rating\n   - recommendation: EXCELLENT_MATCH | GOOD_MATCH | CONSIDER | POOR_FIT | REJECT\n   - match_explanation: Summary paragraph\n\n2. DETAILED SCORES (5 dimensions, each 1-10):\n   - seniority_match: Is this Senior/Lead/Principal/Director level?\n   - domain_match: Infrastructure/Platform/DevEx/API/Cloud focus?\n   - technical_depth: Backend systems/integrations/developer tools?\n   - location_fit: Remote, Hybrid NYC Metro, or Hybrid Bay Area?\n   - compensation: Meets $190k+ threshold?\n\n3. REASONING:\n   - strengths: 3-6 specific reasons this job is a good fit\n   - weaknesses: Key concerns or gaps\n   - key_mismatches: Critical dealbreakers (if any)\n\nWhy include job_id in AI response?\nCRITICAL: The job_id field is included in the prompt template.\nThis ensures the AI's response can be matched back to the original job\nin the Merge node. Without job_id, we couldn't link AI evaluation\nto the correct job when processing multiple jobs.\n\nTemplate variables explained:\n{{ $json.candidate_profile }} - Full resume text from Add Resume Context node\n{{ $json.id }} - Job ID for merge matching\n{{ $json.title }} - Job title\n{{ $json.organization }} - Company name\n{{ $json.description_text }} - Full job description\n... and many more job fields\n\nExample AI input:\n\"Candidate Profile: [15+ years Technical PM...]\nJob Details:\n- Job ID: 12345\n- Title: Senior Technical Product Manager\n- Company: Anthropic\n- Salary: $200,000 - $250,000 USD\n- Location: San Francisco, CA (Remote: true)\nJob Description: [full description]\n\nEvaluate this job...\"\n\nExample AI output:\n{\n  \"job_id\": \"12345\",\n  \"overall_score\": 9,\n  \"recommendation\": \"EXCELLENT_MATCH\",\n  \"detailed_scores\": {\n    \"seniority_match\": 10,\n    \"domain_match\": 9,\n    \"technical_depth\": 8,\n    \"location_fit\": 10,\n    \"compensation\": 9\n  },\n  \"reasoning\": {\n    \"strengths\": [\n      \"Senior-level role matches experience perfectly\",\n      \"Heavy API and infrastructure focus aligns with background\",\n      \"Remote position eliminates location concerns\",\n      \"Compensation well above $190k threshold\",\n      \"Company culture emphasizes technical depth\"\n    ],\n    \"weaknesses\": [\n      \"May require more ML/AI expertise than currently possessed\",\n      \"Fast-paced startup environment could be demanding\"\n    ],\n    \"key_mismatches\": []\n  },\n  \"match_explanation\": \"This is an excellent match for a Technical PM...\"\n}\n\nCost analysis:\n- Input tokens: ~2,000 tokens (profile + job description)\n- Output tokens: ~500 tokens (structured evaluation)\n- Cost per evaluation: ~$0.003\n- Daily cost (40 companies × 3 jobs avg): 120 jobs × $0.003 = $0.36/day\n- Monthly cost: ~$11/month\n\nTiming:\n- API latency: 2-5 seconds per job\n- For 8 jobs: 16-40 seconds total\n\nError handling:\n- If AI fails: Error passed to downstream nodes\n- Can implement retry logic if needed\n- Parse node validates JSON structure\n\nWhy this is the \"slow path\":\nCompared to the parallel \"raw data\" path that goes directly to Merge:\n- AI path: 2-5 seconds, costs $0.003\n- Raw path: Instant, free\n\nBoth paths are necessary:\n- AI path provides intelligence and evaluation\n- Raw path preserves complete job data for merging\n\nProduction considerations:\n1. Rate limiting: Processing jobs sequentially avoids API throttling\n2. Cost monitoring: Track API usage and costs\n3. Quality checks: Validate AI responses are well-structured\n4. A/B testing: Could test different prompts or models\n5. Caching: Could cache evaluations for identical jobs\n\nNext node: Parse AI Response\n═══════════════════════════════════════════════════════════════════════════",
+      "credentials": {
+        "anthropicApi": {
+          "id": "S1ab7OjjV3CoEjxw",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 5: PARSE AI RESPONSE\n// Extracts and structures AI evaluation from Claude's JSON response\n// ============================================================================\n\n// THE PROBLEM:\n// Claude returns its evaluation in a specific format:\n// $json.content[0].text contains the actual JSON string\n// We need to:\n// 1. Extract the JSON string\n// 2. Clean up any markdown formatting\n// 3. Parse into JavaScript object\n// 4. Restructure for database and merge compatibility\n\n// STEP 1: Extract raw response text from Claude's response structure\nlet response = $json.content[0].text;\n// Example: \"```json\\n{...}\\n```\" or \"{...}\"\n\n// STEP 2: Clean up markdown code fences if present\n// Claude sometimes wraps JSON in markdown code blocks\n// Remove: ```json at start and ``` at end\nresponse = response.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n// Now we have clean JSON string: \"{...}\"\n\n// STEP 3: Parse JSON string into JavaScript object\nconst evaluation = JSON.parse(response);\n// If parsing fails, this will throw an error (caught by n8n error handling)\n\n// STEP 4: Restructure into standardized format\nreturn [{\n  json: {\n    // === CRITICAL: Extract job_id for merge matching ===\n    // This MUST match the job ID from the raw job data\n    // The Merge node uses this to link AI evaluation to correct job\n    job_id: evaluation.job_id,\n    \n    // === Full evaluation object for reference ===\n    // Store complete AI response in case we need it later\n    ai_evaluation: evaluation,\n    \n    // === Top-level fields for easy access ===\n    // Extract commonly-used fields to top level\n    overall_score: evaluation.overall_score,\n    recommendation: evaluation.recommendation,\n    \n    // === Reasoning details ===\n    // Extract arrays from nested reasoning object\n    // Use || [] to provide empty array fallback if field missing\n    strengths: evaluation.reasoning?.strengths || [],\n    weaknesses: evaluation.reasoning?.weaknesses || [],\n    key_mismatches: evaluation.reasoning?.key_mismatches || [],\n    match_explanation: evaluation.match_explanation || '',\n    \n    // === Individual scoring dimensions ===\n    // Extract each score from nested detailed_scores object\n    // Use || 0 to provide default score if field missing\n    seniority_match: evaluation.detailed_scores?.seniority_match || 0,\n    domain_match: evaluation.detailed_scores?.domain_match || 0,\n    technical_depth: evaluation.detailed_scores?.technical_depth || 0,\n    location_fit: evaluation.detailed_scores?.location_fit || 0,\n    compensation_fit: evaluation.detailed_scores?.compensation || 0\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// Flattened, structured evaluation data\n// Example:\n// {\n//   job_id: \"12345\",\n//   ai_evaluation: { <full nested object> },\n//   overall_score: 9,\n//   recommendation: \"EXCELLENT_MATCH\",\n//   strengths: [\"Senior level\", \"Infrastructure focus\", ...],\n//   weaknesses: [\"May require ML expertise\"],\n//   key_mismatches: [],\n//   match_explanation: \"This is an excellent match...\",\n//   seniority_match: 10,\n//   domain_match: 9,\n//   technical_depth: 8,\n//   location_fit: 10,\n//   compensation_fit: 9\n// }\n\n// WHY FLATTEN THE STRUCTURE?\n// 1. EASIER MERGE: Top-level fields merge cleanly with job data\n// 2. DATABASE FRIENDLY: Can map directly to table columns\n// 3. EMAIL FORMATTING: Easy access to scores and arrays\n// 4. BACKUP: Keep full ai_evaluation object for reference\n\n// WHY job_id IS CRITICAL:\n// The Merge node (next step) needs to match this AI evaluation\n// with the corresponding raw job data. It does this by comparing:\n// - AI evaluation: job_id field (from this node)\n// - Raw job data: id field (from parallel path)\n// \n// If job_id is missing or incorrect:\n// - Merge will fail to match\n// - AI evaluation gets orphaned\n// - Job card generation breaks\n\n// ERROR HANDLING:\n// If JSON.parse() fails:\n// - n8n catches error and shows in execution log\n// - Can add try/catch for graceful error handling\n// - Could implement retry logic\n// - Could log malformed responses for debugging\n\n// VALIDATION CHECKS (could be added):\n// - Verify job_id exists and matches expected format\n// - Confirm overall_score is 1-10\n// - Validate recommendation is one of allowed values\n// - Check that required fields are present\n// - Ensure arrays are actually arrays\n\n// ARCHITECTURAL NOTE:\n// This node completes the \"AI evaluation path\" (Path A).\n// The parsed evaluation now flows to Merge node where it combines\n// with raw job data from the parallel \"raw data path\" (Path B).\n\n// Parallel path recap:\n// Path A (AI evaluation - slow): \n//   Add Resume Context → Message a model → Parse AI Response → Merge (input 1)\n// \n// Path B (Raw data - fast):\n//   Add Resume Context → Merge (input 2)\n// \n// Merge node receives BOTH:\n// - Input 1: AI evaluation (this node's output)\n// - Input 2: Complete job data (direct from Add Resume Context)\n// \n// Result: Job with BOTH AI evaluation AND all original job fields\n\n// Next node: Merge (input 1)\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        496
+      ],
+      "id": "b76da7d8-94b1-4025-a0d0-c1032e60ee99",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "job_id",
+              "field2": "id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        704,
+        624
+      ],
+      "id": "1cdfa72a-a523-4ac0-9387-8e3b0c1ec69b",
+      "name": "Merge",
+      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 6: MERGE AI EVALUATION WITH RAW JOB DATA\n═══════════════════════════════════════════════════════════════════════════\nCombines AI evaluation results with complete job data from Apify.\n\nWhat is this node doing?\nThe Merge node receives data from TWO parallel paths and combines them:\n\nINPUT 1 (Top pin - AI evaluation path):\nComes from: Parse AI Response\nContains:\n- job_id: \"12345\"\n- overall_score: 9\n- recommendation: \"EXCELLENT_MATCH\"\n- detailed scores: seniority_match, domain_match, etc.\n- reasoning arrays: strengths, weaknesses, key_mismatches\n- match_explanation: AI's summary text\n\nINPUT 2 (Bottom pin - Raw job data path):\nComes from: Add Resume Context (direct connection)\nContains:\n- id: \"12345\" (matches job_id from Input 1)\n- All Apify fields: title, company, salary, location, description\n- All _context_ fields: workflow_run_id, company_id, etc.\n- candidate_profile: Resume text (added by Add Resume Context)\n\nMerge Mode: Combine by Fields\n- Matches items based on specified field pairs\n- Field 1 (from Input 1): job_id\n- Field 2 (from Input 2): id\n- When job_id == id, combine those items\n\nWhy we need both inputs:\n1. AI EVALUATION (Input 1):\n   - Provides intelligence and scoring\n   - But loses original job fields in the process\n   - Claude only returns what we asked for (evaluation JSON)\n   \n2. RAW JOB DATA (Input 2):\n   - Preserves ALL original Apify fields\n   - Includes context fields for tracking\n   - But has no AI evaluation\n\n3. MERGED OUTPUT:\n   - Best of both worlds\n   - AI scores + Complete job details\n   - Everything needed for email formatting\n\nExample merge:\n\nINPUT 1 (AI evaluation):\n{\n  job_id: \"12345\",\n  overall_score: 9,\n  recommendation: \"EXCELLENT_MATCH\",\n  strengths: [...],\n  seniority_match: 10,\n  domain_match: 9\n}\n\nINPUT 2 (Raw job):\n{\n  id: \"12345\",\n  title: \"Senior Technical PM\",\n  organization: \"Anthropic\",\n  salary_min: 200000,\n  url: \"https://...\",\n  _context_workflow_run_id: 67890,\n  _context_company_name: \"Anthropic\"\n}\n\nMERGED OUTPUT:\n{\n  // From Input 1 (AI evaluation)\n  job_id: \"12345\",\n  overall_score: 9,\n  recommendation: \"EXCELLENT_MATCH\",\n  strengths: [...],\n  seniority_match: 10,\n  domain_match: 9,\n  \n  // From Input 2 (Raw job)\n  id: \"12345\",\n  title: \"Senior Technical PM\",\n  organization: \"Anthropic\",\n  salary_min: 200000,\n  url: \"https://...\",\n  _context_workflow_run_id: 67890,\n  _context_company_name: \"Anthropic\"\n}\n\nCritical: Why job_id must match id\nIf job_id (Input 1) != id (Input 2):\n- Merge fails to find matching pair\n- Items don't combine\n- Downstream nodes receive incomplete data\n- Email formatting breaks\n\nThis is why we explicitly include job_id in the AI prompt template.\n\nParallel path timing:\nThe two inputs arrive at DIFFERENT speeds:\n- Input 1 (AI path): 2-5 seconds (slow)\n- Input 2 (Raw path): Instant (fast)\n\nThe Merge node WAITS for both inputs before proceeding.\nThis is automatic n8n behavior - merge nodes don't fire until\nthey have data on all input pins.\n\nArchitectural benefit:\nThis parallel + merge pattern is preserved from v5 because it works well:\n- Raw data preserved quickly (backup)\n- AI evaluation runs separately (can fail without losing data)\n- Merge combines best of both\n- Clean separation of concerns\n\nWhat happens next:\nThe merged data (AI evaluation + complete job fields) flows to:\n- Format Job Card: Creates HTML email card\n- Uses AI scores for badge colors and recommendations\n- Uses job fields for company, title, salary, location display\n- Uses _context_workflow_run_id for email queue grouping\n\nAlternative approaches (and why we don't use them):\n1. Could pass job data through AI node\n   - But AI node doesn't preserve original fields\n   - Would need to reconstruct everything\n   \n2. Could store job data in global variable\n   - Complex state management\n   - Error-prone across multiple jobs\n   \n3. Current approach (parallel + merge):\n   - Clean, explicit data flow\n   - No state management needed\n   - Visual in n8n workflow diagram\n   - Fault tolerant\n\nNext node: Format Job Card\n═══════════════════════════════════════════════════════════════════════════"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 7: FORMAT JOB CARD (COMPACT HTML GENERATOR)\n// Purpose: Create compact, professional HTML card for each job\n// Input: Single merged job (with AI evaluation + raw Apify data)\n// Output: Formatted HTML card + metadata for database/sorting\n// ============================================================================\n\n// This node receives the COMPLETE job data from Merge node:\n// - All AI evaluation fields (scores, recommendation, reasoning)\n// - All raw Apify fields (title, company, salary, location, description)\n// - All context fields (workflow_run_id, company_id, etc.)\n\nconst job = $json;\n\n// ============================================================================\n// HELPER FUNCTIONS\n// These functions safely extract and format job data with fallbacks\n// ============================================================================\n\n// FORMAT SALARY DISPLAY\n// Handles missing data, different currencies, and ranges\nconst formatSalary = () => {\n  const min = job.ai_salary_minvalue || job.salary_min;\n  const max = job.ai_salary_maxvalue || job.salary_max;\n  const currency = job.ai_salary_currency || job.salary_currency || 'USD';\n  \n  if (!min && !max) return 'Not specified';\n  \n  const formatNum = (num) => {\n    if (!num) return '';\n    const formatted = parseInt(num).toLocaleString();\n    return currency === 'USD' ? `$${formatted}` : `${formatted} ${currency}`;\n  };\n  \n  if (min && max) return `${formatNum(min)} - ${formatNum(max)}`;\n  return formatNum(min || max);\n};\n// Example outputs:\n// - \"$200,000 - $250,000\" (full range)\n// - \"$200,000\" (min only)\n// - \"Not specified\" (no data)\n\n// FORMAT LOCATION DISPLAY\n// Prioritizes most reliable location data sources\nconst formatLocation = () => {\n  const parts = [];\n  \n  // PRIORITY 1: Try ai_remote_location array (most reliable for remote/hybrid)\n  if (job.ai_remote_location && Array.isArray(job.ai_remote_location) && job.ai_remote_location.length > 0) {\n    // Take first location, or show count if multiple\n    if (job.ai_remote_location.length === 1) {\n      parts.push(job.ai_remote_location[0]);\n    } else {\n      parts.push(`${job.ai_remote_location[0]} (+${job.ai_remote_location.length - 1} more)`);\n    }\n  } \n  // PRIORITY 2: Try locations_raw structure\n  else if (job.locations_raw?.[0]?.address?.addressLocality) {\n    const loc = job.locations_raw[0].address.addressLocality;\n    // If it's a concatenated string with |, take first location\n    parts.push(loc.includes('|') ? loc.split('|')[0].trim() : loc);\n  }\n  // PRIORITY 3: Try locations_derived or cities_derived\n  else if (job.locations_derived?.[0]) {\n    parts.push(job.locations_derived[0]);\n  } else if (job.cities_derived?.[0]) {\n    const city = job.cities_derived[0];\n    const region = job.regions_derived?.[0];\n    parts.push(region && region !== city ? `${city}, ${region}` : city);\n  }\n  \n  // Add work arrangement with emoji\n  if (job.remote_derived === true || job.remote_derived === 'true') {\n    parts.push('🏠 Remote');\n  } else if (job.ai_work_arrangement) {\n    parts.push(`📍 ${job.ai_work_arrangement}`);\n  }\n  \n  return parts.length ? parts.join(' • ') : 'Location not specified';\n};\n// Example outputs:\n// - \"San Francisco, CA • 🏠 Remote\"\n// - \"New York (+2 more) • 📍 Hybrid\"\n\n// GET BADGE COLOR BY RECOMMENDATION\n// Maps recommendation to color-coded badge\nconst getBadgeColor = (rec) => {\n  const colors = {\n    'EXCELLENT_MATCH': '#10b981',  // Green\n    'GOOD_MATCH': '#3b82f6',       // Blue\n    'CONSIDER': '#f59e0b',         // Amber\n    'POOR_FIT': '#ef4444',         // Red\n    'REJECT': '#991b1b',           // Dark red\n    'UNKNOWN': '#6b7280'           // Gray\n  };\n  return colors[rec] || '#6b7280';\n};\n\n// FORMAT ARRAY AS LIST ITEMS\n// Safely converts arrays to HTML list items\nconst formatList = (arr) => {\n  if (!arr || !Array.isArray(arr) || arr.length === 0) return '';\n  return arr.map(item => `<li style=\"margin-bottom: 3px;\">${item}</li>`).join('');\n};\n\n// SAFELY GET RECOMMENDATION AND SCORE\n// Multiple fallback paths to ensure we always have values\nconst recommendation = job.recommendation || job.ai_evaluation?.recommendation || 'UNKNOWN';\nconst overallScore = job.overall_score || job.ai_evaluation?.overall_score || 0;\n\n// ============================================================================\n// BUILD COMPACT HTML CARD\n// Professional, responsive design optimized for email clients\n// ============================================================================\n\nconst htmlCard = `\n<div style=\"margin-bottom: 0; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">\n  \n  <!-- Header: Title, Company, Badge -->\n  <div style=\"display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;\">\n    <div style=\"flex: 1; min-width: 250px;\">\n      <h2 style=\"margin: 0 0 4px 0; color: #111827; font-size: 18px; font-weight: 600; line-height: 1.3;\">\n        ${job.title || job.job_title || 'Position Title Not Available'}\n      </h2>\n      <p style=\"margin: 0; color: #6b7280; font-size: 14px;\">\n        ${job.organization || job.company_name || 'Company Not Specified'}\n      </p>\n    </div>\n    <div style=\"background: ${getBadgeColor(recommendation)}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; text-align: center;\">\n      <div style=\"font-size: 16px; margin-bottom: 2px;\">${overallScore}/10</div>\n      <div style=\"font-size: 10px; opacity: 0.9;\">${recommendation.replace(/_/g, ' ')}</div>\n    </div>\n  </div>\n\n  <!-- Compact Details + Scores Grid -->\n  <div style=\"margin-bottom: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid ${getBadgeColor(recommendation)};\">\n    \n    <!-- Two Column Layout for Details -->\n    <div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 10px; font-size: 13px;\">\n      <div>\n        <strong style=\"color: #374151;\">💰 Comp:</strong> \n        <span style=\"color: #111827;\">${formatSalary()}</span>\n      </div>\n      <div>\n        <strong style=\"color: #374151;\">📊 Level:</strong> \n        <span style=\"color: #111827;\">${job.ai_experience_level || job.experience_level || 'Not specified'}</span>\n      </div>\n      <div>\n        <strong style=\"color: #374151;\">📍 Location:</strong> \n        <span style=\"color: #111827;\">${formatLocation()}</span>\n      </div>\n      <div>\n        <strong style=\"color: #374151;\">📅 Posted:</strong> \n        <span style=\"color: #111827;\">${job.date_posted ? new Date(job.date_posted).toLocaleDateString() : 'Recently'}</span>\n      </div>\n    </div>\n\n    <!-- Apply Link -->\n    <div style=\"font-size: 13px; padding-top: 8px; border-top: 1px solid #e5e7eb;\">\n      <strong style=\"color: #374151;\">🔗 Apply:</strong> \n      <a href=\"${job.url || job.job_url || '#'}\" style=\"color: #3b82f6; text-decoration: none;\" target=\"_blank\">View Job Posting →</a>\n    </div>\n\n    <!-- Inline Scores (Compact) -->\n    <div style=\"margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;\">\n      <div style=\"display: flex; justify-content: space-between; align-items: center; font-size: 11px;\">\n        <span style=\"color: #6b7280; font-weight: 600;\">SCORES:</span>\n        <div style=\"display: flex; gap: 10px;\">\n          <span style=\"color: #374151;\"><strong>Senior:</strong> ${job.seniority_match || 0}</span>\n          <span style=\"color: #374151;\"><strong>Domain:</strong> ${job.domain_match || 0}</span>\n          <span style=\"color: #374151;\"><strong>Tech:</strong> ${job.technical_depth || 0}</span>\n          <span style=\"color: #374151;\"><strong>Loc:</strong> ${job.location_fit || 0}</span>\n          <span style=\"color: #374151;\"><strong>Comp:</strong> ${job.compensation_fit || 0}</span>\n        </div>\n      </div>\n    </div>\n\n  </div>\n\n  <!-- AI Match Explanation -->\n  ${job.match_explanation ? `\n  <div style=\"margin-bottom: 10px;\">\n    <strong style=\"color: #374151; display: block; margin-bottom: 6px; font-size: 13px;\">✨ AI Assessment:</strong>\n    <p style=\"margin: 0; color: #4b5563; font-size: 12px; line-height: 1.5; padding: 8px; background: #fefce8; border-radius: 4px; border-left: 3px solid #fbbf24;\">\n      ${job.match_explanation}\n    </p>\n  </div>\n  ` : ''}\n\n  <!-- Strengths -->\n  ${job.strengths && Array.isArray(job.strengths) && job.strengths.length > 0 ? `\n  <div style=\"margin-bottom: 10px;\">\n    <strong style=\"color: #10b981; display: block; margin-bottom: 4px; font-size: 13px;\">✅ Strengths:</strong>\n    <ul style=\"margin: 0; padding-left: 20px; color: #4b5563; font-size: 12px; line-height: 1.4;\">\n      ${formatList(job.strengths)}\n    </ul>\n  </div>\n  ` : ''}\n\n  <!-- Weaknesses/Concerns -->\n  ${job.weaknesses && Array.isArray(job.weaknesses) && job.weaknesses.length > 0 ? `\n  <div style=\"margin-bottom: 10px;\">\n    <strong style=\"color: #f59e0b; display: block; margin-bottom: 4px; font-size: 13px;\">⚠️ Considerations:</strong>\n    <ul style=\"margin: 0; padding-left: 20px; color: #4b5563; font-size: 12px; line-height: 1.4;\">\n      ${formatList(job.weaknesses)}\n    </ul>\n  </div>\n  ` : ''}\n\n  <!-- Key Mismatches -->\n  ${job.key_mismatches && Array.isArray(job.key_mismatches) && job.key_mismatches.length > 0 ? `\n  <div>\n    <strong style=\"color: #ef4444; display: block; margin-bottom: 4px; font-size: 13px;\">🚫 Mismatches:</strong>\n    <ul style=\"margin: 0; padding-left: 20px; color: #4b5563; font-size: 12px; line-height: 1.4;\">\n      ${formatList(job.key_mismatches)}\n    </ul>\n  </div>\n  ` : ''}\n\n</div>\n`;\n\n// ============================================================================\n// OUTPUT STRUCTURE\n// Compact database row with embedded HTML card\n// ============================================================================\n\nreturn [{\n  json: {\n    // === CORE IDENTIFIERS ===\n    // Multiple fallback paths to ensure we always have IDs\n    job_id: job.job_id || job.id,\n    company_id: job.company_id || job._context_company_id || 'unknown',\n    company_name: job.organization || job.company_name,\n    \n    // === SORTING FIELDS ===\n    // Email workflow will sort by overall_score DESC\n    recommendation: recommendation,\n    overall_score: overallScore,\n    \n    // === HTML CARD FOR EMAIL ===\n    // Complete, self-contained HTML card\n    // Can be directly inserted into email body\n    html_card: htmlCard,\n    \n    // === KEY DETAILS FOR DATABASE REFERENCE ===\n    // Minimal searchable fields (HTML card has complete details)\n    job_title: job.title || job.job_title,\n    job_url: job.url || job.job_url,\n    salary_min: job.ai_salary_minvalue || job.salary_min,\n    salary_max: job.ai_salary_maxvalue || job.salary_max,\n    location: formatLocation(),\n    date_posted: job.date_posted,\n\n    // === WORKFLOW TRACKING ===\n    // CRITICAL: workflow_run_id links all jobs from this workflow run\n    // Email workflow will query: \"SELECT * WHERE workflow_run_id = X\"\n    workflow_run_id: job._context_workflow_run_id || $execution.id,\n    \n    // === TIMESTAMP ===\n    processed_at: new Date().toISOString()\n  }\n}];\n\n// WHY EMBED HTML IN DATABASE?\n// Alternative approaches:\n// 1. Store job fields + generate HTML in email workflow\n//    - Requires duplicating formatting logic\n//    - Email workflow becomes complex\n//    \n// 2. Store HTML card (current approach)\n//    - Format once, use everywhere\n//    - Email workflow stays simple\n//    - Can preview cards in database\n//    - Consistent formatting guaranteed\n//    \n// Tradeoff: Larger database rows, but much simpler email generation\n\n// DATABASE SCHEMA EFFICIENCY:\n// Instead of storing 30+ job fields separately:\n// - job_id, company_name, recommendation, overall_score (searchable)\n// - html_card (complete formatted output)\n// - workflow_run_id (for querying by run)\n// \n// Advantages:\n// - Simple queries\n// - No complex joins\n// - Fast email generation\n// - Self-contained cards\n\n// Next node: Save to Email Queue\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        704
+      ],
+      "id": "d911615d-cc08-41ee-ae7c-d951be3d2d8e",
+      "name": "Format Job Card"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "FcYe2cOsjo5J6Pr5",
+          "mode": "list",
+          "cachedResultName": "email queue",
+          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/FcYe2cOsjo5J6Pr5"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_run_id": "={{ $json.workflow_run_id }}",
+            "recommendation": "={{ $json.recommendation }}",
+            "overall_score": "={{ $json.overall_score }}",
+            "html_card": "={{ $json.html_card }}",
+            "job_id": "={{ $json.job_id }}",
+            "company_name": "={{ $json.company_name }}",
+            "job_title": "={{ $json.job_title }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow_run_id",
+              "displayName": "workflow_run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "overall_score",
+              "displayName": "overall_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "html_card",
+              "displayName": "html_card",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        704
+      ],
+      "id": "6fce5f75-6b91-462e-a608-45bff5025b25",
+      "name": "Save to Email Queue",
+      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 8: SAVE TO EMAIL QUEUE DATABASE\n═══════════════════════════════════════════════════════════════════════════\nInserts formatted job card into the 'email_queue' table for later aggregation.\n\nWhat this node does:\n- Takes formatted job card from Format Job Card node\n- Inserts ONE ROW PER JOB into email_queue table\n- Accumulates all jobs across all companies in this workflow run\n\nDatabase table: email_queue\n\nColumns stored:\n1. workflow_run_id (number):\n   - Links all jobs from this workflow run\n   - Email workflow queries: \"SELECT * WHERE workflow_run_id = X\"\n   - Critical for grouping jobs into single daily email\n   - Example: 67890\n\n2. recommendation (string):\n   - AI's recommendation category\n   - Used for sorting and filtering\n   - Values: EXCELLENT_MATCH, GOOD_MATCH, CONSIDER, POOR_FIT, REJECT\n\n3. overall_score (number):\n   - AI's numeric score (1-10)\n   - Primary sort field (DESC) for email\n   - Best jobs appear first in email\n\n4. html_card (string):\n   - Complete, formatted HTML card\n   - Self-contained, ready to insert in email\n   - Includes all job details, AI assessment, scores\n\n5. job_id (string):\n   - Unique identifier for this job\n   - Reference back to raw jobs table\n   - Example: \"12345\"\n\n6. company_name (string):\n   - Company posting the job\n   - Used for grouping in email\n   - Example: \"Anthropic\"\n\n7. job_title (string):\n   - Job title for reference\n   - Searchable field\n   - Example: \"Senior Technical Product Manager\"\n\nData accumulation pattern:\n┌─ Company 1 (Anthropic): 8 jobs\n│  ├─ Job 1 → Insert row (workflow_run_id: 67890)\n│  ├─ Job 2 → Insert row (workflow_run_id: 67890)\n│  └─ Job 8 → Insert row (workflow_run_id: 67890)\n│\n├─ Company 2 (OpenAI): 5 jobs\n│  ├─ Job 1 → Insert row (workflow_run_id: 67890)\n│  └─ Job 5 → Insert row (workflow_run_id: 67890)\n│\n└─ All companies complete\n    → Email workflow queries: WHERE workflow_run_id = 67890\n    → Returns all 13 jobs\n    → Sorts by overall_score DESC\n    → Groups by company_name\n    → Generates single email with all jobs\n\nWhy use a queue table?\n1. ACCUMULATION: Collects jobs from ALL companies across entire workflow run\n2. SEPARATION: Job evaluation separate from email generation\n3. SORTING: Email workflow can sort by score, company, or any field\n4. FILTERING: Could filter by recommendation (e.g., only EXCELLENT_MATCH)\n5. AUDIT TRAIL: Historical record of evaluated jobs\n6. REPROCESSING: Could regenerate email from queue data\n7. A/B TESTING: Could test different email formats on same data\n\nAlternative approaches (and why we don't use them):\n1. Generate email immediately after each job\n   - Would send multiple emails per day\n   - No opportunity to sort or filter\n   - No grouping by company\n   \n2. Store job data in workflow variables\n   - Limited memory\n   - Complex state management\n   - Lost if workflow crashes\n   \n3. Current approach (queue table):\n   - Durable storage\n   - Simple queries\n   - Flexible email generation\n   - Clean separation of concerns\n\nEmail workflow query (simplified):\nSELECT *\nFROM email_queue\nWHERE workflow_run_id = 67890\nORDER BY overall_score DESC, company_name ASC\n\nResult: All jobs from today's run, sorted by best matches first\n\nHTML card storage benefit:\nEmail workflow can simply:\n1. Query email queue\n2. Loop through rows\n3. Concatenate html_card fields\n4. Wrap in email template\n5. Send\n\nNo complex formatting logic needed in email workflow!\n\nProduction considerations:\n1. Queue cleanup: Periodically delete old rows\n2. Monitoring: Track queue size growth\n3. Indexing: Index on workflow_run_id for fast queries\n4. Partitioning: Could partition by date for large volumes\n\nLoop-back path:\nAfter inserting to database, this node connects back to:\nLoop Over Jobs → Next job iteration\n\nWhen all jobs complete:\nLoop Over Jobs (Done branch) → Workflow Complete\n\nNext node: Loop Over Jobs (loops back for next job in current company)\n═══════════════════════════════════════════════════════════════════════════"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// NODE 9: WORKFLOW COMPLETE\n// Signals successful completion back to parent workflow\n// ============================================================================\n\n// THE PROBLEM:\n// When the Loop Over Jobs node completes (Done branch fires),\n// we need to signal back to the parent \"Loop Companies\" workflow:\n// \"All jobs for current company processed successfully, ready for next company\"\n\n// THE SOLUTION:\n// Create a simple completion signal with summary information.\n\n// STEP 1: Get all items that came through the Done branch\n// This represents all jobs that were processed for the current company\nconst allItems = $input.all();\n// If Anthropic had 8 jobs, allItems.length will be 8\n\n// STEP 2: Create completion signal\nreturn [{\n  json: {\n    // === STATUS ===\n    // Indicates workflow completed successfully\n    status: 'success',\n    // Could also send 'error' if we implement error handling\n    \n    // === SUMMARY STATISTICS ===\n    // How many jobs went through the loop for this company\n    jobs_processed: allItems.length,\n    // Example: 8 (for Anthropic's 8 jobs)\n    \n    // === TIMESTAMP ===\n    // When this company's jobs finished processing\n    timestamp: new Date().toISOString()\n    // Example: \"2025-12-29T14:30:00.000Z\"\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// Simple success signal:\n// {\n//   status: 'success',\n//   jobs_processed: 8,\n//   timestamp: '2025-12-29T14:30:00.000Z'\n// }\n\n// WHO RECEIVES THIS:\n// The parent \"Loop Companies\" workflow.\n// Specifically, the \"Call 'Loop Jobs'\" node (Execute Workflow type).\n\n// WHAT HAPPENS NEXT:\n// 1. Execute Workflow node in parent receives this signal\n// 2. Parent workflow knows this company's jobs are complete\n// 3. Parent workflow's loop-back path activates\n// 4. Loop Over Companies advances to next company\n// 5. Process repeats for next company\n\n// ARCHITECTURAL FLOW:\n// Sub-workflow (Loop Jobs):\n//   Loop Over Jobs (Done) → Workflow Complete → Return to parent\n//   \n// Parent workflow (Loop Companies):\n//   Call 'Loop Jobs' → Receives completion signal → Loop Over Companies\n\n// TIMING EXAMPLE:\n// Company 1 (Anthropic): 8 jobs × 3 seconds avg = 24 seconds\n//   → Workflow Complete fires\n//   → Parent receives: { status: 'success', jobs_processed: 8 }\n//   → Parent advances to Company 2\n//   \n// Company 2 (OpenAI): 5 jobs × 3 seconds avg = 15 seconds\n//   → Workflow Complete fires\n//   → Parent receives: { status: 'success', jobs_processed: 5 }\n//   → Parent advances to Company 3\n//   \n// All companies done:\n//   → Parent's Loop Over Companies (Done branch) fires\n//   → Parent's Workflow Summary consolidates\n//   → Ready to trigger Email workflow\n\n// WHY WE NEED THIS NODE:\n// Without it:\n// - Sub-workflow would complete but parent wouldn't know it succeeded\n// - No summary information available\n// - Harder to debug (can't see how many jobs processed)\n// \n// With it:\n// - Clear success signal\n// - Summary statistics for monitoring\n// - Timestamp for debugging\n// - Future extensibility (could add error details, retries, etc.)\n\n// POTENTIAL ENHANCEMENTS:\n// Could include additional information:\n// - breakdown: { excellent: 2, good: 4, consider: 2 }\n// - errors: [] (if any jobs failed)\n// - processing_time: \"24 seconds\"\n// - company_context: { company_name: \"Anthropic\", company_id: \"anthropic\" }\n\n// ERROR HANDLING (future):\n// If we add try/catch around job processing:\n// return [{\n//   json: {\n//     status: 'partial_success',\n//     jobs_processed: 6,\n//     jobs_failed: 2,\n//     errors: [\n//       { job_id: \"123\", error: \"AI API timeout\" },\n//       { job_id: \"456\", error: \"Parse error\" }\n//     ]\n//   }\n// }];\n\n// ARCHITECTURAL COMPARISON:\n// OLD (v5): No explicit completion signal (nested loops)\n// NEW: Clear completion signal across workflow boundary\n\n// This is the END of the Job workflow.\n// Control returns to parent \"Loop Companies\" workflow.\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        400
+      ],
+      "id": "90851fd9-5f48-4905-9a3d-3e9bfade2a1b",
+      "name": "Workflow Complete"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Jobs": {
+      "main": [
+        [
+          {
+            "node": "Workflow Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Resume Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Resume Context": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Format Job Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Job Card": {
+      "main": [
+        [
+          {
+            "node": "Save to Email Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Email Queue": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bae9a27a-90ac-4667-81fe-4bf87074ff63",
+  "meta": {
+    "instanceId": "7534cf3caceb89a410b24188fae76f3b891a0be6d8178ba8a99d892ed4a4777d"
+  },
+  "id": "Pi0ZWmaoHYOoebr6",
+  "tags": []
+}
