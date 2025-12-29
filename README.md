@@ -207,9 +207,9 @@ AI Assessment: Perfect match - infrastructure focus...
   - Production checklist
   - 30+ FAQ entries
 
-- **Loop_Companies_FULLY_DOCUMENTED.json** - Workflow 1 (14 nodes)
-- **Loop_Jobs_FULLY_DOCUMENTED.json** - Workflow 2 (9 nodes)
-- **Send_Email_FULLY_DOCUMENTED.json** - Workflow 3 (5 nodes)
+- **Loop_Companies.json** - Workflow 1 (14 nodes)
+- **Loop_Jobs.json** - Workflow 2 (9 nodes)
+- **Send_Email.json** - Workflow 3 (5 nodes)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
