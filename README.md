@@ -1,6 +1,6 @@
 # RoleRadar
 
-**An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized product management opportunities via daily digest.**
+**An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via daily digest.**
 
 RoleRadar is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed for senior technical product managers, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
 
