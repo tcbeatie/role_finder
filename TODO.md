@@ -83,7 +83,7 @@ Currently hardcoded in Loop Jobs workflow → Move to external storage
 ---
 
 ### 3a. Externalize Company Data
-Currently hardcoded in Loop Companies workflow → Move to external storage
+Currently loaded in Loop Companies workflow → Move to Main loop
 
 ---
 
