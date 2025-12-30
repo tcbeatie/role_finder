@@ -51,7 +51,7 @@
 ### 3. Externalize Resume/Profile Data
 Currently hardcoded in Loop Jobs workflow → Move to external storage
 
-- [ ] **Create profile storage**
+- [DONE Option C] **Create profile storage**
   - **Option A**: New database table `candidate_profiles`
     ```sql
     CREATE TABLE candidate_profiles (
@@ -66,7 +66,7 @@ Currently hardcoded in Loop Jobs workflow → Move to external storage
   - **Option B**: External file (GitHub Gist, S3, or local file)
   - **Option C**: n8n data table with single row
 
-- [ ] **Update Loop Jobs workflow**
+- [DONE] **Update Loop Jobs workflow**
   - Add "Load Profile" node at start
   - Remove hardcoded profile from "Add Resume Context"
   - Replace with: `profile_text: $('Load Profile').item.json.resume_text`
