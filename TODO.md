@@ -82,6 +82,11 @@ Currently hardcoded in Loop Jobs workflow → Move to external storage
 
 ---
 
+### 3a. Externalize Company Data
+Currently hardcoded in Loop Companies workflow → Move to external storage
+
+---
+
 ## 💰 Cost Optimization
 
 ### 4. Batch Apify Requests
