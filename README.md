@@ -2,14 +2,14 @@
 
 **An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via daily digest.**
 
-RoleRadar is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed for senior technical product managers, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
+RoleRadar is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
 
 ---
 
 ## Key Features
 
-- 🎯 **Targeted Discovery**: Monitors 40+ companies via Apify Career Site API
-- 🤖 **AI-Powered Evaluation**: Claude Sonnet 4.5 scores jobs across 5 dimensions
+- 🎯 **Targeted Discovery**: Monitors companies via Apify Career Site API
+- 🤖 **AI-Powered Evaluation**: AI scores jobs across 5 dimensions
 - 📧 **Professional Digests**: Daily HTML email with best matches first
 - 🔄 **Fault Tolerant**: Company-by-company processing survives individual failures
 - 💾 **Complete Tracking**: Raw job data, AI evaluations, and email history preserved
@@ -36,7 +36,7 @@ RoleRadar uses a three-workflow pipeline that separates concerns for clean archi
 │  Input:   Jobs with context from parent workflow            │
 │  Output:  Formatted job cards → email_queue table           │
 └────────────────┬────────────────────────────────────────────┘
-                 │ When all complete, calls ↓
+                 │ When all complete, Main calls ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  WORKFLOW 3: Send Email                                     │
 │  Purpose: Aggregate and deliver daily digest                │
@@ -84,7 +84,7 @@ RoleRadar uses a three-workflow pipeline that separates concerns for clean archi
 - **AI Evaluation**: Anthropic Claude Sonnet 4.5
 - **Email Delivery**: Gmail API (OAuth2)
 - **Data Storage**: n8n Data Tables (or PostgreSQL for production)
-- **Deployment**: Docker-based (n8n + database)
+- **Deployment**: n8n-hosted, then later Docker-based (n8n + database)
 
 ---
 
@@ -92,7 +92,7 @@ RoleRadar uses a three-workflow pipeline that separates concerns for clean archi
 
 Every job is traceable through the entire pipeline via workflow_run_id:
 
-1. **Discovery**: Loop Companies discovers job from Anthropic
+1. **Discovery**: Loop Companies discovers job
 2. **Context**: Enriched with `_context_workflow_run_id`, `_context_company_id`
 3. **Evaluation**: Loop Jobs evaluates with AI, saves to email_queue
 4. **Delivery**: Send Email queries by workflow_run_id, includes in digest
