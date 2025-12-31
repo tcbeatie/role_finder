@@ -87,6 +87,11 @@ Currently loaded in Loop Companies workflow → Move to Main loop
 
 ---
 
+### 3b. Externalize Apify Data
+Currently hardcoded for Apify → Move to Profile
+
+---
+
 ## 💰 Cost Optimization
 
 ### 4. Batch Apify Requests
