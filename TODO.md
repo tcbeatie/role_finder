@@ -92,6 +92,12 @@ Currently hardcoded for Apify → Move to Profile
 
 ---
 
+### 3c. Fail nicely when 0 jobs 
+Currently breaks at db query if 0 jobs → Send a "none today!" email
+
+---
+
+
 ## 💰 Cost Optimization
 
 ### 4. Batch Apify Requests
