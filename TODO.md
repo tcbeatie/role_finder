@@ -92,8 +92,8 @@ Currently hardcoded for Apify → Move to Profile
 
 ---
 
-### 3c. Fail nicely when 0 jobs 
-Currently breaks at db query if 0 jobs → Send a "none today!" email
+### 3c. Fail nicely when zero jobs 
+Currently breaks at db query if no jobs → Send a "none today!" email
 
 ---
 
