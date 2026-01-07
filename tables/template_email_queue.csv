@@ -1,0 +1,2 @@
+﻿workflow_run_id,recommendation,overall_score,html_card,job_id,company_name,job_title
+test,test,score,html,acme,"Acme Industries",tester
