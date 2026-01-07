@@ -1,4 +1,4 @@
-# RoleRadar Job Monitoring System - Complete Documentation
+# RoleFinder Job Monitoring System - Complete Documentation
 
 ## 📋 Table of Contents
 1. [Overview](#overview)
@@ -20,7 +20,7 @@
 ## 🎯 Overview
 
 ### Purpose
-RoleRadar is an automated job monitoring system that discovers, evaluates, and delivers personalized product management job recommendations via daily email digest.
+RoleFinder is an automated job monitoring system that discovers, evaluates, and delivers personalized product management job recommendations via daily email digest.
 
 ### Business Problem
 As a senior technical product manager, you need to:
