@@ -1,2 +1,2 @@
 ﻿company_id,company_name,domain_derived,job_id,job_title,date_posted,locality,region,remote_derived,salary_min,salary_max,job_url,job_data
-acme,"Acme Industries",acme.com,,,,,,,,,,,
+acme,"Acme Industries",acme.com,,,,,,,,,,
