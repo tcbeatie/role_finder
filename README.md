@@ -1,8 +1,8 @@
-# RoleRadar
+# RoleFinder
 
 **An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via daily digest.**
 
-RoleRadar is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
+RoleFinder is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
 
 ---
 
@@ -20,7 +20,7 @@ RoleRadar is a production-grade automation system built on n8n that monitors tar
 
 ## Architecture Overview
 
-RoleRadar uses a three-workflow pipeline that separates concerns for clean architecture:
+RoleFinder uses a three-workflow pipeline that separates concerns for clean architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -339,7 +339,7 @@ See WORKFLOW_DOCUMENTATION_README.md for detailed troubleshooting guide.
 
 ---
 
-## Extending RoleRadar
+## Extending RoleFinder
 
 ### Adding More Companies
 Simply add rows to companies table - no workflow changes needed.
@@ -400,7 +400,7 @@ Change cron schedule and modify email query to include last 7 days.
 
 This is currently a personal project configured for my specific job search needs. However, the architecture is designed to be generalizable.
 
-If you're interested in adapting RoleRadar for your own use:
+If you're interested in adapting RoleFinder for your own use:
 1. Fork the repository
 2. Update the candidate profile in Loop Jobs
 3. Modify scoring criteria to match your targets
@@ -437,6 +437,6 @@ For questions about architecture or implementation:
 
 ---
 
-**RoleRadar** - Intelligent job monitoring for senior technical product managers.
+**RoleFinder** - Intelligent job monitoring for senior technical product managers.
 
 *Last Updated: December 29, 2025*
