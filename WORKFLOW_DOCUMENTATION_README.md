@@ -603,7 +603,7 @@ Send Jobs Email (Gmail delivery)
 - **Type**: Gmail node
 - **API**: Gmail API with OAuth2
 - **Configuration**:
-  - sendTo: tcbeatie@gmail.com
+  - sendTo: [TBD]
   - subject: `{{ $json.subject }}`
   - message: `{{ $json.html_body }}`
 - **Delivery**: < 1 second
@@ -800,8 +800,8 @@ Process batch (email, analysis, etc.)
 | Column | Type | Description |
 |--------|------|-------------|
 | id | Integer | Auto-increment primary key |
-| profile_id | String | Unique profile identifier (e.g., "ted_beatie_pm") |
-| profile_name | String | Display name (e.g., "Ted Beatie - Technical PM") |
+| profile_id | String | Unique profile identifier |
+| profile_name | String | Display name |
 | resume_text | Text | Complete resume/experience for AI evaluation |
 | target_criteria | JSON/Text | Job search criteria (titles, location, salary, etc.) |
 | notes | Text | Optional profile notes |
@@ -820,11 +820,11 @@ Process batch (email, analysis, etc.)
 **Example target_criteria JSON**:
 ```json
 {
-  "titleSearch": "\"Product Manager\" OR \"Technical Program Manager\" OR \"Technical Product Manager\"",
-  "titleExclusionSearch": "\"Associate Product Manager\" OR \"Junior\" OR \"Entry\" OR \"Intern\"",
-  "minSalary": 190000,
-  "locations": ["Remote", "Hybrid NYC Metro", "Hybrid Bay Area"],
-  "requiredSkills": ["Infrastructure", "Platform", "API", "Cloud", "Developer Tools"]
+  "titleSearch": "[TBD]",
+  "titleExclusionSearch": "[TBD]",
+  "minSalary": [TBD],
+  "locations": ["[TBD]"],
+  "requiredSkills": ["[TBD]"]
 }
 ```
 
@@ -936,8 +936,8 @@ WHERE processed_at < NOW() - INTERVAL '30 days';
    
 2. PROFILE LOADING (NEW in v2.1)
    Load from candidate_profile table
-   profile_id: "ted_beatie_pm"
-   resume_text: "TED BEATIE - PRODUCT LEADER..."
+   profile_id: "[TBD]"
+   resume_text: "[TBD]"
    target_criteria: { titleSearch: "...", ... }
    
 3. COMPANY LOADING
@@ -968,12 +968,12 @@ WHERE processed_at < NOW() - INTERVAL '30 days';
       
    9. ADD CONTEXT
       Attach to each job:
-      - _context_workflow_run_id: 67890
-      - _context_company_id: "anthropic"
-      - _context_company_name: "Anthropic"
-      - _context_domain: "anthropic.com"
-      - _context_profile_id: "ted_beatie_pm" (NEW)
-      - _context_resume_text: "TED BEATIE..." (NEW)
+      - _context_workflow_run_id: [TBD]
+      - _context_company_id: "[TBD]"
+      - _context_company_name: "[TBD]"
+      - _context_domain: "[TBD]"
+      - _context_profile_id: "[TBD]" (NEW)
+      - _context_resume_text: "[TBD]" (NEW)
       - _context_target_criteria: {...} (NEW)
       
    10. CALL LOOP JOBS v3.1 (Slow Path)
@@ -1181,17 +1181,17 @@ Profile management has been completely redesigned in v2.1/v3.1 to externalize ca
 **candidate_profile table:**
 ```json
 {
-  "profile_id": "ted_beatie_pm",
-  "profile_name": "Ted Beatie - Technical PM",
-  "resume_text": "TED BEATIE - PRODUCT LEADER\n\nSUMMARY:\n- 15+ years...",
+  "profile_id": "[TBD]",
+  "profile_name": "[TBD]",
+  "resume_text": "[TBD]",
   "target_criteria": {
-    "titleSearch": "\"Product Manager\" OR \"Technical Program Manager\"",
-    "titleExclusionSearch": "\"Associate\" OR \"Junior\" OR \"Intern\"",
-    "minSalary": 190000,
-    "locations": ["Remote", "Hybrid NYC Metro", "Hybrid Bay Area"],
-    "requiredSkills": ["Infrastructure", "Platform", "API"]
+    "titleSearch": "[TBD]",
+    "titleExclusionSearch": "[TBD]",
+    "minSalary": [TBD],
+    "locations": ["[TBD]"],
+    "requiredSkills": ["[TBD]"]
   },
-  "notes": "Senior technical PM with infrastructure focus"
+  "notes": "[TBD]"
 }
 ```
 
@@ -1243,13 +1243,13 @@ INSERT INTO candidate_profile (
 UPDATE candidate_profile
 SET resume_text = 'Updated resume text...',
     updatedAt = NOW()
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 
 -- Update target criteria
 UPDATE candidate_profile
-SET target_criteria = '{"titleSearch": "Director OR VP", "minSalary": 250000}',
+SET target_criteria = '{"titleSearch": "[TBD]", "minSalary": [TBD]}',
     updatedAt = NOW()
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 ```
 
 **Switch Active Profile:**
@@ -1387,7 +1387,7 @@ With profile externalization, the system now supports multiple users:
      const title = job.title.toLowerCase();
      return !title.includes('associate') && 
             !title.includes('junior') &&
-            job.salary_min >= 150000;
+            job.salary_min >= [TBD];
    });
    ```
    Savings: ~30% if filtering removes 30% of jobs
@@ -1504,7 +1504,7 @@ ORDER BY timestamp DESC;
 ```sql
 -- Check if profile exists
 SELECT * FROM candidate_profile 
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 
 -- Check if profile data complete
 SELECT 
@@ -1774,11 +1774,11 @@ A: Yes, in v2.1 it's easier than ever:
 ```sql
 UPDATE candidate_profile
 SET target_criteria = '{
-  "titleSearch": "Director OR VP OR \"Head of Product\"",
-  "titleExclusionSearch": "Associate OR Junior",
-  "minSalary": 250000
+  "titleSearch": "[TBD]",
+  "titleExclusionSearch": "[TBD]",
+  "minSalary": [TBD]
 }'
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 ```
 
 ---
@@ -1822,13 +1822,13 @@ A: Much easier in v2.1 - just update the database:
 UPDATE candidate_profile
 SET resume_text = 'Updated resume text...',
     updatedAt = NOW()
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 
 -- Update job criteria
 UPDATE candidate_profile
-SET target_criteria = '{"titleSearch": "VP OR Director", "minSalary": 300000}',
+SET target_criteria = '{"titleSearch": "[TBD]", "minSalary": [TBD]}',
     updatedAt = NOW()
-WHERE profile_id = 'ted_beatie_pm';
+WHERE profile_id = '[TBD]';
 ```
 
 **No workflow editing required!** Changes take effect on next run.
