@@ -21,7 +21,7 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 - 📧 **Professional Digests**: Daily HTML email with best matches first
 - 🔄 **Fault Tolerant**: Company-by-company processing survives individual failures
 - 💾 **Complete Tracking**: Raw job data, AI evaluations, and email history preserved
-- 📊 **Cost Efficient**: ~$1.84/day with >10,000% ROI on time saved
+- 📊 **Cost Efficient**: ~$1.84/day
 - 🏗️ **Production Ready**: Comprehensive documentation, error handling, monitoring queries
 
 ---
@@ -74,7 +74,7 @@ Interested in the managed service? **Contact for pricing and availability:**
 
 RoleFinder is purpose-built for a specific use case. To maintain focus and manage expectations, here's what it deliberately does **not** do:
 
-- **Not a general-purpose job scraper** - Monitors specific target companies via Apify API, not every job board or career site
+- **Not a general-purpose job scraper** - Monitors specific target companies, not every job board or career site
 - **Not real-time alerting** - Runs on scheduled intervals (daily), not instant push notifications when jobs are posted
 - **Not guaranteed to catch every posting** - Depends on Apify's data coverage, company career page updates, and API timing
 - **Not a replacement for human judgment** - AI provides scoring and recommendations, but final application decisions remain yours
@@ -281,7 +281,6 @@ AI Assessment: Perfect match - infrastructure focus...
 - Time saved: 2-3 hours/day of manual searching
 - Your hourly value: $100-150/hour (based on target comp)
 - Daily value: $200-450 in time saved
-- **ROI: >10,000%**
 
 ---
 
@@ -315,16 +314,7 @@ AI Assessment: Perfect match - infrastructure focus...
 
 📚 **Complete documentation available in repository:**
 
-- **Operator_Guide.md** - Comprehensive system guide
-  - Architecture deep-dive
-  - All four workflows explained
-  - Database schema
-  - Profile externalization pattern
-  - Cost analysis
-  - Troubleshooting guide
-  - Production checklist
-  - 30+ FAQ entries
-
+- **README.md** - You're looking at it!
 - **Main.json** - Main orchestrator v3.1 (5 nodes)
 - **Loop_Companies.json** - Workflow 1 v3.1 (14 nodes)
 - **Loop_Jobs.json** - Workflow 2 v4.1 (8 nodes)
@@ -612,26 +602,26 @@ Inspired by the need for intelligent, low-noise job discovery that respects your
 
 ## About the Creator
 
-RoleFinder was created by **Ted Beatie**, a Senior Technical Product Manager with [X years] of experience in [domain/industry - e.g., developer tools, infrastructure, platform engineering].
+RoleFinder was created by **Ted Beatie**, a Senior Technical Product Manager with over 20 years of experience in developer tools, infrastructure, and platform engineering.
 
 ### Why I Built This
 
-After years of relying on traditional job boards, I grew frustrated with the noise-to-signal ratio. LinkedIn, Indeed, and other platforms surface hundreds of irrelevant roles while missing opportunities at companies I actually wanted to work for. I needed a system that:
+After years of relying on traditional job boards, I needed a system that:
 
 - **Monitored specific companies** where I wanted to work, not every company on the internet
 - **Used AI to evaluate fit** based on my actual experience and criteria, not keyword matching
 - **Delivered high-signal alerts** instead of overwhelming me with noise
 - **Saved hours of manual searching** every single day
 
-RoleFinder is that system. I built it for myself, and now I use it daily to monitor [40/X] target companies and receive personalized job digests every morning.
+RoleFinder is that system. I built it for myself, and now I use it daily to monitor over 50 target companies and receive personalized job digests every morning.
 
 ### From Personal Tool to Open Source
 
 What started as a personal automation project evolved into a production-grade system with:
 - Clean architecture separating discovery, evaluation, and delivery
 - Externalized profile management for multi-user support
-- Comprehensive error handling and fault tolerance
-- 116KB of documentation suitable for junior developer handoff
+- Error handling and fault tolerance
+- Comprehensive documentation 
 
 I'm open-sourcing RoleFinder because I believe others face the same frustrations with traditional job search. Whether you're a senior engineer, product manager, designer, or any other role - if you know *where* you want to work but struggle to track opportunities, this system can help.
 
