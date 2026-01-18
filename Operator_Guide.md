@@ -3,38 +3,91 @@
 ## 📋 Table of Contents
 1. [Overview](#overview)
 2. [System Architecture](#system-architecture)
-3. [Workflow 1: Loop Companies v2.1](#workflow-1-loop-companies-v21)
-4. [Workflow 2: Loop Jobs v3.1](#workflow-2-loop-jobs-v31)
-5. [Workflow 3: Send Email v1.1](#workflow-3-send-email-v11)
-6. [Key Concepts](#key-concepts)
-7. [Database Schema](#database-schema)
-8. [Data Flow & Traceability](#data-flow--traceability)
-9. [Profile Management](#profile-management)
-10. [Cost Analysis](#cost-analysis)
-11. [Troubleshooting](#troubleshooting)
-12. [Production Checklist](#production-checklist)
-13. [FAQ](#faq)
+3. [Workflow 0: Main Workflow v3.1](#main-workflow-v31)
+4. [Workflow 1: Loop Companies v3.1](#workflow-1-loop-companies-v31)
+5. [Workflow 2: Loop Jobs v4.1](#workflow-2-loop-jobs-v41)
+6. [Workflow 3: Send Email v2.1](#workflow-3-send-email-v21)
+7. [Key Concepts](#key-concepts)
+8. [Database Schema](#database-schema)
+9. [Data Flow & Traceability](#data-flow--traceability)
+10. [Profile Management](#profile-management)
+11. [Cost Analysis](#cost-analysis)
+12. [Troubleshooting](#troubleshooting)
+13. [Production Checklist](#production-checklist)
+14. [FAQ](#faq)
+
+---
+
+## 📖 Audience & Scope
+
+This documentation is intended for:
+
+- **Advanced users** self-hosting and operating RoleFinder
+- **Contributors or operators** interested in the internal workflow design
+
+It assumes familiarity with:
+
+- n8n workflows
+- Credential and secrets management
+- API-based automation
+- Cloud-hosted infrastructure
+- Third-party platform limits and pricing
+
+This guide documents observed behavior and internal workflow design.
+It does not represent a guarantee of cost, performance, or long-term stability.
+
+**If you are looking for a fully managed experience, a hosted service is available.** See the main [README.md](README.md) for details on the managed service option.
+
+---
+
+## 🛠️ Why a Managed Service Exists
+
+While RoleFinder is fully open source, operating it reliably over time involves:
+
+- Updating workflows along with n8n versions
+- Monitoring third-party API changes
+- Managing workflow failures
+- Optimizing scraping frequency and cost
+- Keeping up with provider limits and pricing
+- Adding new features
+
+The managed service exists to handle this ongoing operational burden on behalf of job-seekers.
+
+---
+
+## 📌 Workflow Versioning
+
+**Note:** Workflow versions (e.g., Main v3.1, Loop Companies v3.1) reflect internal workflow evolution and may not map to public releases.
+
+---
+
+## 🔒 Security & Data Handling
+
+- **Credentials** are expected to be stored securely using environment variables or platform-native secrets
+- **Users are responsible** for compliance with applicable terms of service for third-party platforms
+- **No personal data** is collected or transmitted by default beyond user-provided configuration
 
 ---
 
 ## 🎯 Overview
 
 ### Purpose
-RoleFinder is an automated job monitoring system that discovers, evaluates, and delivers personalized product management job recommendations via daily email digest.
+RoleFinder is an automated job monitoring system that discovers, evaluates, and delivers personalized job recommendations via daily email digest.
 
 ### Business Problem
-As a senior technical product manager, you need to:
-- Monitor 40+ target companies for relevant PM positions
+As a job-seeker, you need to:
+- Monitor target companies for relevant positions
 - Evaluate job fit across 5 dimensions (seniority, domain, technical depth, location, compensation)
 - Receive daily digest of best matches without manual searching
 - Track historical job postings for market analysis
 - Maintain privacy and security of personal profile data
 
 ### Solution Architecture
-**Three-workflow pipeline with externalized profile management:**
-1. **Loop Companies v2.1**: Discovers jobs from target companies via Apify API, loads profile from database
-2. **Loop Jobs v3.1**: Evaluates each job with AI (Claude Sonnet 4.5) using profile from context
-3. **Send Email v1.1**: Aggregates results and delivers professional digest via Gmail
+**Four-workflow pipeline with top-level orchestration:**
+1. **Main v3.1**: Top-level orchestrator, loads profile, coordinates sub-workflows
+2. **Loop Companies v3.1**: Discovers jobs from target companies, receives profile from Main
+3. **Loop Jobs v4.1**: Evaluates each job with AI using profile from context
+4. **Send Email v2.1**: Aggregates results and delivers professional digest via Gmail
 
 ### Key Metrics
 - **Processing Time**: ~7-8 minutes for 40 companies
@@ -42,14 +95,15 @@ As a senior technical product manager, you need to:
 - **Deliverables**: Single daily email with all jobs sorted by AI score
 - **Success Rate**: >99% with fault-tolerant architecture
 
-### What's New in v2.1/v3.1
-**Major Architectural Improvement: Profile Externalization**
-- Profile data moved from hardcoded workflow JSON to database table
-- Eliminates personal data from workflow files
-- Enables multi-user support (different profiles per candidate)
-- Simplifies profile updates (no workflow editing required)
-- Improves security (profile can be encrypted in database)
-- Reduces workflow complexity (fewer nodes, cleaner data flow)
+### What's New in v2
+**Major Architectural Improvements:**
+- Added Main orchestrator workflow for top-level coordination
+- Profile data moved from workflow to database table
+- Eliminated personal data from workflow files
+- Enabled multi-user support (different profiles per candidate)
+- Simplified profile updates (no workflow editing required)
+- Migrated from n8n v1 to v2
+- Updated documentation
 
 ---
 
@@ -58,54 +112,69 @@ As a senior technical product manager, you need to:
 ### High-Level Pipeline
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                 WORKFLOW 1: LOOP COMPANIES v2.1                         │
-│  Purpose: Discover jobs + load profile from database                   │
-│  Input: companies table (40 companies) + candidate_profile table       │
-│  Output: Raw jobs → jobs table, enriched jobs → Loop Jobs workflow     │
-│  NEW: Profile loaded once and passed to all jobs via context           │
+│                  WORKFLOW 0: MAIN WORKFLOW v3.1                         │
+│  Purpose: Top-level orchestrator, scheduled entry point                 │
+│  Input: Cron schedule or manual trigger                                 │
+│  Output: Coordinates entire pipeline, ensures execution order           │
+└──────────────────────┬──────────────────────────────────────────────────┘
+                       │ Calls ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 WORKFLOW 1: LOOP COMPANIES v3.1                         │
+│  Purpose: Discover jobs + receive profile from Main                     │
+│  Input: companies table (40 companies) + profile from Main              │
+│  Output: Raw jobs → jobs table, enriched jobs → Loop Jobs workflow      │
+│  NEW: Profile received from Main and passed to all jobs via context     │
 └──────────────────────┬──────────────────────────────────────────────────┘
                        │ For each company, calls ↓
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    WORKFLOW 2: LOOP JOBS v3.1                           │
-│  Purpose: AI evaluation using profile from _context_resume_text        │
-│  Input: Jobs with _context_ fields (including profile data)            │
-│  Output: Formatted job cards → email_queue table                       │
-│  NEW: Profile used directly from context, no hardcoded data            │
+│                    WORKFLOW 2: LOOP JOBS v4.1                           │
+│  Purpose: AI evaluation using profile from _context_resume_text         │
+│  Input: Jobs with _context_ fields (including profile data)             │
+│  Output: Formatted job cards → email_queue table                        │
+│  NEW: Profile used directly from context, no hardcoded data             │
 └──────────────────────┬──────────────────────────────────────────────────┘
-                       │ When all companies complete, calls ↓
+                       │ When all companies complete, returns to Main ↓
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   WORKFLOW 3: SEND EMAIL v1.1                           │
-│  Purpose: Aggregate and deliver daily digest                           │
-│  Input: workflow_run_id from parent                                    │
-│  Output: Professional HTML email via Gmail                             │
+│                   WORKFLOW 3: SEND EMAIL v2.1                           │
+│  Purpose: Aggregate and deliver daily digest                            │
+│  Input: workflow_run_id from Main                                       │
+│  Output: Professional HTML email via Gmail                              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Workflow Interactions
 ```
-Loop Companies v2.1 (Parent)
-├─ Loads: companies table
-├─ Loads: candidate_profile table (NEW in v2.1)
-├─ Merges: company + profile data (NEW: Merge Data node)
-├─ Iterates: One company at a time
-├─ For each company:
-│  ├─ Calls: Apify API (get jobs)
-│  ├─ Saves: Raw jobs → jobs table
-│  ├─ Add Context: Enriches jobs with company + profile data
-│  │  ├─ _context_workflow_run_id
-│  │  ├─ _context_company_id, _context_company_name, _context_domain
-│  │  ├─ _context_profile_id (NEW in v2.1)
-│  │  ├─ _context_resume_text (NEW in v2.1)
-│  │  └─ _context_target_criteria (NEW in v2.1)
-│  ├─ Calls: Loop Jobs v3.1 sub-workflow
-│  │  ├─ Receives: Jobs with _context_ fields (including profile)
-│  │  ├─ Iterates: One job at a time
-│  │  ├─ Evaluates: Claude AI uses _context_resume_text directly
-│  │  ├─ Formats: HTML job cards
-│  │  └─ Saves: Formatted cards → email_queue table
-│  └─ Loop back: Next company
-├─ When all complete:
-│  └─ Calls: Send Email v1.1 sub-workflow
+Main v3.1 (Top-Level Orchestrator)
+├─ Triggered: schedule or manual execution
+├─ Loads: candidate_profile table (once at start)
+├─ Calls: Loop Companies v3.1 sub-workflow (passes profile)
+│  │
+│  Loop Companies v3.1 (Sub-workflow)
+│  ├─ Receives: Profile data from Main
+│  ├─ Loads: companies table
+│  ├─ Merges: company + profile data (NEW: Merge Data node)
+│  ├─ Iterates: One company at a time
+│  ├─ For each company:
+│  │  ├─ Calls: Apify API (get jobs)
+│  │  ├─ Saves: Raw jobs → jobs table
+│  │  ├─ Add Context: Enriches jobs with company + profile data
+│  │  │  ├─ _context_workflow_run_id
+│  │  │  ├─ _context_company_id, _context_company_name, _context_domain
+│  │  │  ├─ _context_profile_id (NEW in v2.1)
+│  │  │  ├─ _context_resume_text (NEW in v2.1)
+│  │  │  └─ _context_target_criteria (NEW in v2.1)
+│  │  ├─ Calls: Loop Jobs v4.1 sub-workflow
+│  │  │  ├─ Receives: Jobs with _context_ fields (including profile)
+│  │  │  ├─ Iterates: One job at a time
+│  │  │  ├─ Evaluates: Claude AI uses _context_resume_text directly
+│  │  │  ├─ Formats: HTML job cards
+│  │  │  └─ Saves: Formatted cards → email_queue table
+│  │  └─ Loop back: Next company
+│  └─ Returns: workflow_run_id to Main
+│
+├─ Calls: Send Email v2.1 sub-workflow (passes workflow_run_id)
+│  └─ Send Email v2.1 (Sub-workflow)
+│     ├─ Receives: workflow_run_id from Main
 │     ├─ Queries: email_queue WHERE workflow_run_id = X
 │     ├─ Aggregates: All jobs, sort by score
 │     ├─ Generates: Professional HTML email
@@ -116,13 +185,14 @@ Loop Companies v2.1 (Parent)
 ### Key Design Principles
 
 **1. Separation of Concerns**
-- **Workflow 1**: Company orchestration, job discovery, profile loading
-- **Workflow 2**: Individual job evaluation with AI
-- **Workflow 3**: Email aggregation and delivery
+- **Main**: Top-level orchestration, scheduling, profile loading
+- **Loop Companies**: Company iteration, job discovery, context enrichment
+- **Loop Jobs**: Individual job evaluation with AI
+- **Send Email**: Email aggregation and delivery
 
-**2. Profile Externalization (v2.1/v3.1)**
+**2. Profile Externalization**
 - Profile stored in database, not hardcoded in workflows
-- Loaded once in parent workflow, passed via context
+- Loaded once in Main workflow, passed to Loop Companies via context
 - Eliminates personal data from workflow JSON
 - Enables multi-user support and easier updates
 
@@ -143,7 +213,143 @@ Loop Companies v2.1 (Parent)
 
 ---
 
-## 📄 Workflow 1: Loop Companies v2.1
+## 🎬 Workflow 0: Main Workflow v3.1
+
+### Purpose
+The Main workflow is the **top-level orchestrator** that coordinates the entire RoleFinder pipeline. It serves as the entry point for scheduled or manual executions, loads the candidate profile, and sequences the sub-workflow calls.
+
+### Node Structure (5 nodes)
+```
+Start (Manual Trigger or Cron Schedule)
+  ↓
+Load Profile (from candidate_profile table)
+  ↓
+Call 'Loop Companies v3.1' (passes profile data)
+  ↓
+Call 'Send Email v2.1' (passes workflow_run_id)
+  ↓
+Workflow Complete
+```
+
+### Critical Nodes Explained
+
+**NODE 1: Start**
+- **Type**: Manual Trigger or Schedule Trigger
+- **Purpose**: Entry point for the entire system
+- **Production**: Configured with cron schedule (e.g., `0 6 * * *` for 6 AM daily)
+- **Testing**: Manual execution for testing
+
+**NODE 2: Load Profile**
+- **Type**: Data Table (Get)
+- **Query**: Loads profile from `candidate_profile` table
+- **Returns**: Single profile record with `resume_text`, `target_criteria`, etc.
+- **Critical**: This profile data flows to all downstream workflows
+- **Filter**: `WHERE profile_id = 'default'` (or specified profile)
+
+**NODE 3: Call 'Loop Companies v3.1'**
+- **Type**: Execute Workflow (Sub-workflow)
+- **Calls**: Loop Companies v3.1
+- **Passes**: Profile data from Load Profile node
+- **Waits**: For all companies to be processed (typically 5-8 minutes)
+- **Returns**: Summary of companies processed and jobs discovered
+- **Critical**: Failure here stops entire pipeline
+
+**NODE 4: Call 'Send Email v2.1'**
+- **Type**: Execute Workflow (Sub-workflow)
+- **Calls**: Send Email v2.1
+- **Passes**: `workflow_run_id` from Loop Companies execution
+- **Purpose**: Aggregates all jobs and sends daily digest
+- **Timing**: Only executes after Loop Companies completes successfully
+- **Returns**: Email delivery confirmation
+
+**NODE 5: Workflow Complete**
+- **Type**: Code node or End node
+- **Purpose**: Signals successful completion
+- **Output**: Final summary statistics
+- **Logs**: Total execution time, jobs processed, email status
+
+### Key Behaviors
+
+**Profile Flow:**
+```
+Start → Load Profile → Pass to Loop Companies
+  → Loop Companies merges profile with each company
+  → Loop Jobs uses profile for AI evaluation
+```
+
+**Execution Flow:**
+```
+Main starts
+  ↓
+Load profile (1 second)
+  ↓
+Call Loop Companies (5-8 minutes)
+  → Loop Companies execution starts (workflow_run_id generated)
+  → Processes 40 companies sequentially
+  → Each company calls Loop Jobs
+  → All jobs saved to email_queue with workflow_run_id
+  ↓
+Call Send Email (<1 second)
+  → Receives workflow_run_id from Loop Companies
+  → Queries email_queue by workflow_run_id
+  → Sends digest via Gmail
+  ↓
+Complete (total: 6-9 minutes)
+```
+
+**Error Handling:**
+- If Load Profile fails → Entire workflow stops
+- If Loop Companies fails → Send Email never called
+- If Send Email fails → Jobs processed but not delivered
+
+### Database Tables Used
+1. **candidate_profile** (input): Loads user profile
+2. None directly written (delegates to sub-workflows)
+
+### Scheduling Recommendations
+
+**Daily Execution:**
+```
+Cron: 0 6 * * *  (6 AM daily)
+Timezone: America/New_York (or user's timezone)
+```
+
+**Weekly Execution:**
+```
+Cron: 0 6 * * 1  (6 AM every Monday)
+Adjust Loop Companies to query last 7 days
+```
+
+**Testing Schedule:**
+```
+Manual execution only (no cron)
+Use "Execute Workflow" in n8n UI
+```
+
+### Benefits of Main Orchestrator Pattern
+
+**Before Main workflow existed:**
+- Loop Companies had to be triggered manually
+- No consistent way to pass profile data
+- Difficult to coordinate timing of email sending
+
+**With Main orchestrator:**
+- Single entry point for entire system
+- Consistent profile loading
+- Guaranteed execution order (companies → email)
+- Clean separation of scheduling from processing logic
+- Easier to add future workflows (notifications, analytics, etc.)
+
+### Version Notes
+
+**v3.1 Changes:**
+- Added profile loading from database
+- Passes profile to Loop Companies (eliminates hardcoded data)
+- Ensures Send Email only runs after companies complete
+
+---
+
+## 📄 Workflow 1: Loop Companies v3.1
 
 ### Purpose
 Orchestrates company-by-company job discovery, loads candidate profile from database, and coordinates sub-workflow execution.
@@ -178,30 +384,28 @@ Loop Over Companies ─────┐
     │   Data ↓           │
     │   Insert Raw Jobs  │
     │                    │
-    └─Call Loop Jobs v3.1 ─┤
+    └─Call Loop Jobs v4.1 ─┤
       (passes profile)   │
       ↓                  │
       Loop back ─────────┘
       
 When all companies complete:
   ↓
-Workflow Summary
-  ↓
-Call 'Send Email v1.1'
+Return to Main
 ```
 
 ### Critical Nodes Explained
 
 **NODE 1: Start**
-- **Type**: Manual Trigger
+- **Type**: Sub-workflow Trigger
 - **Purpose**: Entry point for workflow
-- **Production**: Can be triggered by schedule or webhook
+- **Production**: Triggered by Main workflow
 - **Testing**: Manual execution with pin data
 
 **NODE 2: Load Companies**
 - **Type**: Data Table (Get)
 - **Query**: All active companies from `companies` table
-- **Returns**: ~40 company records with domain, name, id
+- **Returns**: company records with domain, name, id
 - **Note**: Runs in parallel with profile loading
 
 **NODE 3: Merge Data (NEW in v2.1)**
@@ -252,9 +456,9 @@ Call 'Send Email v1.1'
 - **Why**: Sub-workflow needs both company AND profile context
 - **Note**: References Merge Data node for original merged data with profile
 
-**NODE 11: Call 'Loop Jobs v3.1'**
+**NODE 11: Call 'Loop Jobs v4.1'**
 - **Type**: Execute Workflow
-- **Calls**: Loop Jobs v3.1 sub-workflow
+- **Calls**: Loop Jobs v4.1 sub-workflow
 - **Passes**: All jobs with _context_ fields (including profile data)
 - **NEW**: Profile data passed via context, not hardcoded
 - **Waits**: For sub-workflow to complete all jobs
@@ -298,7 +502,7 @@ Add Context → Save Apify data → Insert row → [ENDS]
 
 **Path B (Slow - AI Evaluation):**
 ```
-Add Context → Call 'Loop Jobs v3.1' → [Loops back when all jobs complete]
+Add Context → Call 'Loop Jobs v4.1' → [Loops back when all jobs complete]
 ```
 - Calls sub-workflow for AI evaluation
 - Takes 2-5 seconds per job
@@ -336,7 +540,7 @@ Add Context → Call 'Loop Jobs v3.1' → [Loops back when all jobs complete]
 
 ---
 
-## 🤖 Workflow 2: Loop Jobs v3.1
+## 🤖 Workflow 2: Loop Jobs v4.1
 
 ### Purpose
 Evaluates individual jobs with AI using profile from context, formats HTML cards, saves to email queue.
@@ -374,9 +578,9 @@ Workflow Complete
 ### Critical Nodes Explained
 
 **NODE 1: Start**
-- **Type**: Manual Trigger  
+- **Type**: Sub-workflow Trigger  
 - **Purpose**: Sub-workflow entry point
-- **Input**: Jobs with _context_ fields from parent workflow
+- **Input**: Jobs with _context_ fields from Loop Companies workflow
 - **NEW v3.1**: Receives `_context_resume_text` (no separate profile loading needed)
 
 **NODE 2: Loop Over Jobs**
@@ -525,7 +729,7 @@ Direct parallel split to AI + Raw paths
 
 ---
 
-## 📧 Workflow 3: Send Email v1.1
+## 📧 Workflow 3: Send Email v2.1
 
 ### Purpose
 Aggregates all evaluated jobs from the workflow run and delivers professional HTML email digest via Gmail.
@@ -546,9 +750,9 @@ Send Jobs Email (Gmail delivery)
 ### Critical Nodes Explained
 
 **NODE 1: Start**
-- **Type**: Manual Trigger
+- **Type**: Sub-workflow Trigger
 - **Purpose**: Sub-workflow entry point
-- **Input**: `workflow_run_id` from parent workflow
+- **Input**: `workflow_run_id` from Main workflow
 - **Critical**: This ID links all jobs from current run
 
 **NODE 2: Load Email Queue**
@@ -650,7 +854,7 @@ This workflow demonstrates the **many → one → delivered** pattern:
 
 ### workflow_run_id - The Master Key
 
-The `workflow_run_id` is **THE KEY** that ties the entire three-workflow system together.
+The `workflow_run_id` is **THE KEY** that ties the entire four-workflow system together.
 
 **Created by**: Loop Companies workflow (`$execution.id`)
 **Value example**: 67890
@@ -713,9 +917,11 @@ Single email with all 20+ jobs
 
 **Parent-Child Relationship:**
 ```
-Loop Companies (parent)
-  ├─ Calls Loop Jobs (child) multiple times
-  │  └─ Returns when all jobs processed
+Main (parent)
+  ├─ Calls Loop Companies (child) once
+  │  ├─ Calls Loop Jobs (child) multiple times
+  │  │  └─ Returns when all jobs processed
+  │  └─ Returns to Main when all companies processed
   └─ Calls Send Email (child) once
      └─ Returns when email sent
 ```
@@ -783,8 +989,6 @@ Process batch (email, analysis, etc.)
 | domain | String | Company domain (e.g., "anthropic.com") |
 | status | String | "active" or "inactive" |
 | notes | Text | Optional notes about company |
-| createdAt | DateTime | When record was created |
-| updatedAt | DateTime | When record was last modified |
 
 **Indexes**: 
 - PRIMARY KEY (id)
@@ -805,8 +1009,6 @@ Process batch (email, analysis, etc.)
 | resume_text | Text | Complete resume/experience for AI evaluation |
 | target_criteria | JSON/Text | Job search criteria (titles, location, salary, etc.) |
 | notes | Text | Optional profile notes |
-| createdAt | DateTime | When profile was created |
-| updatedAt | DateTime | When profile was last modified |
 
 **Indexes**:
 - PRIMARY KEY (id)
@@ -836,7 +1038,7 @@ Process batch (email, analysis, etc.)
 
 ---
 
-### Table: jobs_test_1
+### Table: jobs
 **Purpose**: Store raw job data from Apify API
 
 | Column | Type | Description |
@@ -855,7 +1057,6 @@ Process batch (email, analysis, etc.)
 | url | String | Link to job posting |
 | date_posted | DateTime | When job was posted |
 | job_data_full | JSON | Complete Apify response (all fields) |
-| createdAt | DateTime | When record was created |
 
 **Indexes**:
 - PRIMARY KEY (id)
@@ -881,7 +1082,6 @@ Process batch (email, analysis, etc.)
 | overall_score | Integer | 1-10 AI scoring |
 | html_card | Text | Complete formatted HTML card |
 | processed_at | DateTime | When AI evaluation completed |
-| createdAt | DateTime | When record was created |
 
 **Indexes**:
 - PRIMARY KEY (id)
@@ -916,7 +1116,6 @@ WHERE processed_at < NOW() - INTERVAL '30 days';
 | error_type | String | "api_error", "no_results", "validation_error" |
 | error_message | Text | Error details |
 | timestamp | DateTime | When error occurred |
-| createdAt | DateTime | When record was created |
 
 **Usage**:
 - Log Error node saves API failures
@@ -930,133 +1129,135 @@ WHERE processed_at < NOW() - INTERVAL '30 days';
 ### Complete Data Flow
 
 ```
-1. WORKFLOW START
-   Loop Companies v2.1 starts
-   Execution ID: 67890 (becomes workflow_run_id)
-   
-2. PROFILE LOADING (NEW in v2.1)
+1. MAIN WORKFLOW START
+   Main v3.1 starts
+
+2. PROFILE LOADING (in Main)
    Load from candidate_profile table
    profile_id: "[TBD]"
    resume_text: "[TBD]"
    target_criteria: { titleSearch: "...", ... }
-   
-3. COMPANY LOADING
+
+3. MAIN CALLS LOOP COMPANIES
+   Loop Companies v3.1 starts
+   Execution ID: 67890 (becomes workflow_run_id)
+
+4. COMPANY LOADING (in Loop Companies)
    Load from companies table
    40 active companies
-   
-4. MERGE PROFILE + COMPANIES
+
+5. MERGE PROFILE + COMPANIES
    Merge Data node combines
    Each company now has profile fields attached
-   
-5. BUILD API REQUESTS
+
+6. BUILD API REQUESTS
    Extract criteria from profile.target_criteria
    titleSearch dynamically set from profile
-   
-6. COMPANY LOOP
+
+7. COMPANY LOOP
    For each company (e.g., Anthropic):
-   
-   7. APIFY API CALL
+
+   8. APIFY API CALL
       domain: "anthropic.com"
       titleSearch: from profile
       Returns: 8 jobs
-      
-   8. RAW JOB STORAGE (Fast Path)
+
+   9. RAW JOB STORAGE (Fast Path)
       jobs_test_1 table
       8 rows inserted
       Fields: job_id, title, company, salary, etc.
       workflow_run_id: 67890
-      
-   9. ADD CONTEXT
-      Attach to each job:
-      - _context_workflow_run_id: [TBD]
-      - _context_company_id: "[TBD]"
-      - _context_company_name: "[TBD]"
-      - _context_domain: "[TBD]"
-      - _context_profile_id: "[TBD]" (NEW)
-      - _context_resume_text: "[TBD]" (NEW)
-      - _context_target_criteria: {...} (NEW)
-      
-   10. CALL LOOP JOBS v3.1 (Slow Path)
+
+   10. ADD CONTEXT
+       Attach to each job:
+       - _context_workflow_run_id: [TBD]
+       - _context_company_id: "[TBD]"
+       - _context_company_name: "[TBD]"
+       - _context_domain: "[TBD]"
+       - _context_profile_id: "[TBD]" (NEW)
+       - _context_resume_text: "[TBD]" (NEW)
+       - _context_target_criteria: {...} (NEW)
+
+   11. CALL LOOP JOBS v4.1 (Slow Path)
        Receives 8 jobs with all context fields
-       
-       11. JOB LOOP
+
+       12. JOB LOOP
            For each job (e.g., "Senior PM"):
-           
-           12. PARALLEL SPLIT
+
+           13. PARALLEL SPLIT
                Path A: AI evaluation
                Path B: Raw data to merge
-               
-           13. AI EVALUATION (Path A)
+
+           14. AI EVALUATION (Path A)
                Message a model node
                Uses _context_resume_text directly (NEW)
                Prompt: Profile + Job → Evaluation
                Returns: Scores, recommendation, reasoning
                Cost: $0.003
-               
-           14. PARSE RESPONSE
+
+           15. PARSE RESPONSE
                Extract scores, flatten structure
                job_id, overall_score, recommendation, etc.
-               
-           15. MERGE (Both Paths)
+
+           16. MERGE (Both Paths)
                Input 0: AI evaluation (from Path A)
                Input 1: Raw job + context (from Path B)
                Combined: AI scores + Complete job details
-               
-           16. FORMAT HTML CARD
+
+           17. FORMAT HTML CARD
                Generate professional card
                Include: Title, company, salary, location
                Include: AI scores, strengths, weaknesses
                Include: Color-coded badge
-               
-           17. SAVE TO EMAIL QUEUE
+
+           18. SAVE TO EMAIL QUEUE
                email_queue table
                workflow_run_id: 67890
                html_card: complete HTML
                recommendation: EXCELLENT_MATCH
                overall_score: 9
-               
-           18. LOOP BACK
+
+           19. LOOP BACK
                Process next job
-               
-       19. ALL JOBS COMPLETE
+
+       20. ALL JOBS COMPLETE
            Return to Loop Companies
-           
-   20. LOOP BACK
+
+   21. LOOP BACK
        Process next company
-       
-21. ALL COMPANIES COMPLETE
+
+22. ALL COMPANIES COMPLETE
     40 companies × ~3 jobs = 120 jobs in email_queue
     All tagged with workflow_run_id: 67890
-    
-22. WORKFLOW SUMMARY
-    Consolidate stats
-    Prepare to call Send Email
-    
-23. CALL SEND EMAIL v1.1
+    Loop Companies returns to Main
+
+23. MAIN CALLS SEND EMAIL v2.1
     Pass workflow_run_id: 67890
-    
-    24. LOAD EMAIL QUEUE
-        Query: WHERE workflow_run_id = 67890
-        Returns: 120 job items
-        
-    25. AGGREGATE AND SORT
-        Categorize by recommendation:
-        - excellent_count: 12
-        - strong_count: 35
-        - consider_count: 48
-        - poor_count: 25
-        Sort by overall_score DESC
-        Concatenate HTML cards with spacers
-        
-    26. BUILD EMAIL
-        Subject: "🎯 12 Excellent Matches, 35 Strong • 120 Total Jobs"
-        HTML body: Header + Stats + Cards + Footer
-        
-    27. SEND VIA GMAIL
-        API call to Gmail
-        Email delivered to inbox
-        
-28. WORKFLOW COMPLETE
+
+24. SEND EMAIL WORKFLOW STARTS
+
+    LOAD EMAIL QUEUE
+      Query: WHERE workflow_run_id = 67890
+      Returns: 120 job items
+
+    AGGREGATE AND SORT
+      Categorize by recommendation:
+      - excellent_count: 12
+      - strong_count: 35
+      - consider_count: 48
+      - poor_count: 25
+      Sort by overall_score DESC
+      Concatenate HTML cards with spacers
+
+    BUILD EMAIL
+      Subject: "🎯 12 Excellent Matches, 35 Strong • 120 Total Jobs"
+      HTML body: Header + Stats + Cards + Footer
+
+    SEND VIA GMAIL
+      API call to Gmail
+      Email delivered to inbox
+
+25. WORKFLOW COMPLETE
     User receives email
     System ready for tomorrow
 ```
@@ -1343,6 +1544,14 @@ With profile externalization, the system now supports multiple users:
 
 ## 💰 Cost Analysis
 
+### Cost Estimates
+
+All costs shown are estimates based on observed usage patterns and current provider pricing and observed usage patterns. Actual costs may vary depending on:
+
+- Number of tracked companies and roles
+- Workflow frequency
+- Changes in third-party pricing or quotas
+
 ### Daily Costs
 
 **Apify API** (~$1.48/day):
@@ -1373,24 +1582,16 @@ With profile externalization, the system now supports multiple users:
 
 ### Cost Optimization Strategies
 
+These strategies are provided for self-hosted operators who are actively
+maintaining their own deployments and monitoring cost trade-offs.
+
 **Reduce Apify Costs:**
-1. Monitor fewer companies (40 → 20) = 50% savings
-2. Increase timeRange (7d → 14d) = run less frequently
-3. Self-host career site scraping (eliminates Apify)
-4. Batch company requests (if Apify supports)
+1. Monitor fewer companies
+2. Increase timeRange (24h → 7d) = run less frequently
+4. Batch company requests
 
 **Reduce AI Costs:**
-1. Pre-filter jobs before AI evaluation:
-   ```javascript
-   // Filter out obviously bad matches
-   const eligible = jobs.filter(job => {
-     const title = job.title.toLowerCase();
-     return !title.includes('associate') && 
-            !title.includes('junior') &&
-            job.salary_min >= [TBD];
-   });
-   ```
-   Savings: ~30% if filtering removes 30% of jobs
+1. Pre-filter jobs before AI evaluation
 
 2. Use cheaper AI model for pre-screening:
    - Claude Haiku for initial filter (cheaper)
@@ -1671,14 +1872,14 @@ FROM candidate_profile;
 - [ ] All credentials stored in n8n securely
 
 **Workflows Configured:**
-- [ ] Loop Companies v2.1: All nodes tested
+- [ ] Loop Companies v3.1: All nodes tested
   - [ ] Profile loading works
   - [ ] Merge Data combines profile + companies
   - [ ] Build Request extracts criteria from profile
-- [ ] Loop Jobs v3.1: All nodes tested
+- [ ] Loop Jobs v4.1: All nodes tested
   - [ ] Profile arrives via _context_resume_text
   - [ ] AI evaluation uses profile correctly
-- [ ] Send Email v1.1: All nodes tested
+- [ ] Send Email v2.1: All nodes tested
 
 **Testing:**
 - [ ] Run full pipeline end-to-end
@@ -1717,39 +1918,43 @@ FROM candidate_profile;
 
 ### General Questions
 
-**Q: How does the system work?**  
-A: Three-workflow pipeline:
-1. Loop Companies discovers jobs from 40 target companies
-2. Loop Jobs evaluates each job with AI (Claude Sonnet 4.5)
-3. Send Email delivers professional daily digest
+**Q: How does the system work?**
+A: Four-workflow pipeline:
+1. Main orchestrates the entire system, loads profile, and coordinates sub-workflows
+2. Loop Companies discovers jobs from 40 target companies
+3. Loop Jobs evaluates each job with AI (Claude Sonnet 4.5)
+4. Send Email delivers professional daily digest
 
 Total time: ~8 minutes. Total cost: ~$1.84/day.
 
 ---
 
-**Q: What's new in v2.1/v3.1?**  
+**Q: What's new in v2.1/v3.1?**
 A: Major profile externalization update:
 - Profile moved from hardcoded workflow code to database table
-- Loop Companies loads profile and passes via _context_* fields
+- Main loads profile once and passes to Loop Companies
+- Loop Companies passes profile to jobs via _context_* fields
 - Loop Jobs uses profile directly from context (no separate node)
 - Eliminates personal data from workflow JSON
 - Enables multi-user support
 - Simplifies profile updates
 
 **Architecture changes:**
-- Loop Companies v2.1: +Merge Data node, profile loading, dynamic criteria
-- Loop Jobs v3.1: -Add Resume Context node (eliminated), 8 nodes (down from 9)
-- Send Email v1.1: No changes (same architecture)
+- Main v3.1: New orchestrator workflow, loads profile from database
+- Loop Companies v3.1: +Merge Data node, receives profile from Main
+- Loop Jobs v4.1: -Add Resume Context node (eliminated), 8 nodes (down from 9)
+- Send Email v2.1: Now called from Main instead of Loop Companies
 
 ---
 
-**Q: Why use three separate workflows?**  
+**Q: Why use separate workflows?**
 A: Benefits:
-1. **Separation of concerns**: Discovery, evaluation, delivery are distinct
+1. **Separation of concerns**: Orchestration, discovery, evaluation, delivery are distinct
 2. **Independent testing**: Test each workflow separately
 3. **Reusability**: Loop Jobs can be called for different use cases
 4. **Fault tolerance**: Error in one doesn't crash others
 5. **Easier maintenance**: Modify one without affecting others
+6. **Clean scheduling**: Main handles all triggering and coordination
 
 ---
 
@@ -2033,6 +2238,10 @@ Plus intangible benefits:
 
 ## 🙋 Support
 
+This operator guide is provided as-is.
+Self-hosted deployments are not covered by guaranteed support.
+Operators are responsible for monitoring, debugging, and maintaining their own environments.
+
 ### Getting Help
 
 **Workflow Issues:**
@@ -2065,10 +2274,13 @@ Plus intangible benefits:
 
 ## 📝 Version History
 
-**v3.1** (Current) - Profile Externalization
-- Loop Companies v2.1: Profile loaded from database
-- Loop Jobs v3.1: Profile used from context (Add Resume Context node eliminated)
-- Send Email v1.1: No changes
+**Note:** Workflow versions (e.g., Main v3.1, Loop Companies v3.1) reflect internal workflow evolution and may not map 1:1 with public releases.
+
+**v3.1** (Current) - Profile Externalization + Main Orchestrator
+- Main v3.1: New top-level orchestrator workflow, loads profile from database
+- Loop Companies v3.1: Receives profile from Main, passes to jobs
+- Loop Jobs v4.1: Profile used from context (Add Resume Context node eliminated)
+- Send Email v2.1: Now called from Main instead of Loop Companies
 - Added candidate_profile database table
 - Profile passed via _context_* fields
 - Eliminated personal data from workflow JSON
@@ -2077,8 +2289,9 @@ Plus intangible benefits:
 - Enhanced security (profile can be encrypted)
 - Improved documentation with profile management section
 
-**v3.0** - Three-Workflow Architecture
-- Split into Loop Companies, Loop Jobs, Send Email
+**v3.0** - Four-Workflow Architecture
+- Added Main orchestrator workflow
+- Split into Main, Loop Companies, Loop Jobs, Send Email
 - Added sub-workflow pattern
 - Improved fault tolerance
 - Enhanced email formatting

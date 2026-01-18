@@ -2,6 +2,14 @@
 
 **An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via daily digest.**
 
+## Who This Project Is For
+
+This repository is intended for **developers and technical users** who want to run and self-host their own job-tracking solution using RoleFinder.
+
+**If you'd rather not manage the technical setup and ongoing maintenance**, see the [Managed Service Option](#managed-service-option) below for a fully hosted solution.
+
+---
+
 RoleFinder is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
 
 ---
@@ -18,57 +26,161 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 
 ---
 
+## Managed Service Option
+
+**Don't want to self-host?** A fully managed RoleFinder service is available where all infrastructure, setup, and maintenance is handled for you.
+
+### What's Included
+
+- **Zero-Touch Setup**: No n8n installation, API configuration, or workflow imports
+- **Infrastructure Management**: Hosting, monitoring, and uptime guaranteed
+- **API Credential Handling**: Apify, Claude, and Gmail integrations managed
+- **Profile Customization**: Your resume, criteria, and target companies configured
+- **Daily Monitoring**: Error resolution and workflow optimization
+- **Ongoing Updates**: Automatic workflow improvements and feature additions
+- **Dedicated Support**: Direct access for questions, adjustments, and troubleshooting
+
+### Best For
+
+- **Non-technical users** who want the benefits without the technical setup
+- **Busy professionals** who value time over DIY cost savings (~4-6 hours setup + ongoing maintenance)
+- **Reliability-focused users** who want guaranteed uptime and expert support
+- **Anyone** who prefers hands-off automation that "just works"
+
+### Self-Hosted vs. Managed
+
+| Feature | Self-Hosted (This Repo) | Managed Service |
+|---------|------------------------|-----------------|
+| **Cost** | ~$55/month (API costs only) | Contact for pricing |
+| **Setup Time** | 4-6 hours initial setup | 0 hours (done for you) |
+| **Maintenance** | Your responsibility | Fully managed |
+| **Support** | Best-effort via GitHub | Dedicated support channel |
+| **Customization** | Full control over code | Configuration without code |
+| **Updates** | Manual workflow updates | Automatic improvements |
+| **Monitoring** | Self-service | Proactive error resolution |
+| **Uptime** | Dependent on your setup | Guaranteed reliability |
+
+### Get Started
+
+Interested in the managed service? **Contact for pricing and availability:**
+
+- **Email**: [TBD - will be added before publication]
+- **Website**: [TBD - will be added before publication]
+- **Response Time**: Within 24-48 hours
+
+---
+
+## Non-Goals
+
+RoleFinder is purpose-built for a specific use case. To maintain focus and manage expectations, here's what it deliberately does **not** do:
+
+- **Not a general-purpose job scraper** - Monitors specific target companies via Apify API, not every job board or career site
+- **Not real-time alerting** - Runs on scheduled intervals (daily), not instant push notifications when jobs are posted
+- **Not guaranteed to catch every posting** - Depends on Apify's data coverage, company career page updates, and API timing
+- **Not a replacement for human judgment** - AI provides scoring and recommendations, but final application decisions remain yours
+- **Not an application tracker/CRM** - Doesn't manage applications, interview schedules, follow-ups, or offer negotiations
+- **Not a resume builder or optimizer** - Doesn't generate, rewrite, or improve resumes (uses your existing profile for evaluation)
+- **Not a LinkedIn/Indeed replacement** - Designed to complement, not replace, traditional job search methods
+- **Not infinitely scalable without cost** - Each job evaluation incurs API costs (Apify + Claude); monitoring 500+ companies daily gets expensive
+
+If you're looking for these features, this project may not be the right fit. Issues requesting non-goal features will be closed with a reference to this section.
+
+---
+
 ## Architecture Overview
 
-RoleFinder uses a three-workflow pipeline that separates concerns for clean architecture:
+The following section describes the internal workflows for advanced users who want to understand or operate the system.
+
+RoleFinder uses a four-workflow pipeline with a top-level orchestrator that separates concerns for clean architecture. The system features externalized profile management stored in the database, enabling multi-user support and eliminating hardcoded personal data from workflow files.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 1: Loop Companies                                 │
+│  MAIN v3.1 (Orchestrator)                                   │
+│  Purpose: Load profile and orchestrate complete pipeline    │
+│  Input:   Manual/scheduled trigger                          │
+│  Actions: 1. Load profile from candidate_profile table      │
+│           2. Call Loop Companies v3.1 (with profile)        │
+│           3. Call Send Email v2.1 (after companies done)    │
+└────┬────────────────────────────────────────────────────┬───┘
+     │ Passes profile ↓                                   │
+┌─────────────────────────────────────────────────────────────┐
+│  WORKFLOW 1: Loop Companies v3.1                            │
 │  Purpose: Discover jobs from target companies               │
-│  Input:   companies table (40 companies)                    │
+│  Input:   Profile data from Main + companies table          │
 │  Output:  Raw jobs → database, enriched jobs → Loop Jobs    │
+│  Key:     Merges profile with each company before loop      │
 └────────────────┬────────────────────────────────────────────┘
                  │ Calls for each company ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 2: Loop Jobs                                      │
+│  WORKFLOW 2: Loop Jobs v4.1                                 │
 │  Purpose: AI evaluation and HTML card generation            │
-│  Input:   Jobs with context from parent workflow            │
+│  Input:   Jobs with _context_* fields (incl. profile data)  │
 │  Output:  Formatted job cards → email_queue table           │
-└────────────────┬────────────────────────────────────────────┘
-                 │ When all complete, Main calls ↓
+│  Key:     Uses _context_resume_text from parent (no PII)    │
+└─────────────────────────────────────────────────────────────┘
+     │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email                                     │
+│  WORKFLOW 3: Send Email v2.1                                │
 │  Purpose: Aggregate and deliver daily digest                │
-│  Input:   workflow_run_id from parent                       │
+│  Input:   workflow_run_id from Main                         │
 │  Output:  Professional HTML email via Gmail                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Profile Externalization Architecture
+
+**Key Innovation**: Candidate profiles are stored in the `candidate_profile` database table, not hardcoded in workflows. This enables:
+
+- **Multi-user support**: Multiple users can share the same workflows with different profiles
+- **Clean workflow files**: No personal data (resume, criteria) in workflow JSON files
+- **Easy updates**: Change profile in database without modifying workflows
+- **Security**: Profile data can be encrypted at rest, separately from workflow definitions
+
+**Data Flow**:
+1. Main workflow loads profile from `candidate_profile` table at startup
+2. Profile passed to Loop Companies via sub-workflow execution
+3. Loop Companies merges profile with each company in "Merge Data" node
+4. Profile passed to Loop Jobs via `_context_resume_text` and `_context_target_criteria` fields
+5. Loop Jobs uses profile data for AI evaluation without storing it in workflow
+
 ### Workflow Details
 
-**Loop Companies (14 nodes)**
-- Loads target companies from database
+**Main v3.1 (5 nodes)** - Top-level orchestrator
+- Entry point via manual trigger or cron schedule
+- Loads candidate profile from `candidate_profile` database table
+- Calls Loop Companies v3.1 sub-workflow (passes profile data)
+- Waits for all companies to complete processing
+- Calls Send Email v2.1 sub-workflow (passes workflow_run_id)
+- Completes when email is delivered
+
+**Loop Companies v3.1 (14 nodes)** - Job discovery
+- Receives profile data from Main workflow
+- Loads target companies from `companies` database table
+- Merges profile with each company (1-to-many relationship)
 - Iterates one company at a time (fault tolerance)
-- Calls Apify API to discover jobs
-- Saves raw job data immediately (backup path)
-- Calls Loop Jobs sub-workflow with enriched job data
+- For each company:
+  - Calls Apify API to discover jobs
+  - Saves raw job data immediately to `jobs` table (backup path)
+  - Enriches jobs with `_context_*` fields including profile data
+  - Calls Loop Jobs v4.1 sub-workflow with enriched job data
 - Handles API errors and no-results gracefully
-- Returns to company loop for next iteration
+- Returns summary to Main when all companies complete
 
-**Loop Jobs (9 nodes)**
-- Receives jobs from parent with context fields
-- Iterates one job at a time (AI rate limiting)
-- Adds candidate profile and target criteria
-- Calls Claude Sonnet 4.5 for intelligent evaluation
-- Parses structured JSON response (scores, reasoning)
-- Merges AI evaluation with complete job data
-- Generates professional HTML job card
-- Saves to email queue with workflow tracking
-- Returns to parent when all jobs complete
+**Loop Jobs v4.1 (8 nodes)** - AI evaluation
+- Receives jobs with `_context_*` fields from Loop Companies
+- Uses `_context_resume_text` from parent (no hardcoded profile)
+- Iterates one job at a time (AI rate limiting + error isolation)
+- For each job:
+  - Sends job + profile to Claude Sonnet 4.5 for evaluation
+  - Parses structured JSON response (scores, reasoning, recommendation)
+  - Merges AI evaluation with complete job data (parallel paths)
+  - Generates professional HTML job card
+  - Saves to `email_queue` table with `workflow_run_id`
+- Returns to Loop Companies when all jobs complete
 
-**Send Email (5 nodes)**
-- Queries email queue for all jobs from workflow run
+**Send Email v2.1 (5 nodes)** - Email delivery
+- Receives `workflow_run_id` from Main workflow
+- Queries `email_queue` for all jobs from this workflow run
 - Aggregates and sorts by AI score (best first)
 - Groups by recommendation category (excellent/good/consider)
 - Generates dynamic subject line based on quality
@@ -99,6 +211,7 @@ Every job is traceable through the entire pipeline via workflow_run_id:
 5. **Tracking**: Email footer shows workflow_run_id for reference
 
 Database tables:
+- `candidate_profile` - User profiles with resume and target criteria (enables multi-user support)
 - `companies` - Target companies to monitor
 - `jobs` - Raw job data with searchable fields
 - `email_queue` - Formatted job cards linked by workflow_run_id
@@ -108,13 +221,15 @@ Database tables:
 
 ## AI Evaluation Criteria
 
-Each job is scored (1-10) across five dimensions:
+RoleFinder uses AI to score each job across five customizable dimensions. Below is an **example configuration** used for a Senior Technical Product Manager search:
 
-1. **Seniority Match**: Senior/Lead/Principal/Director level (not Junior/Associate)
-2. **Domain Match**: Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems
-3. **Technical Depth**: Backend systems, integrations, developer tools expertise
-4. **Location Fit**: Remote, Hybrid NYC Metro, or Hybrid Bay Area
-5. **Compensation**: $190k+ minimum threshold
+1. **Seniority Match** (Example: Senior/Lead/Principal/Director level, not Junior/Associate)
+2. **Domain Match** (Example: Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems)
+3. **Technical Depth** (Example: Backend systems, integrations, developer tools expertise)
+4. **Location Fit** (Example: Remote, Hybrid NYC Metro, or Hybrid Bay Area)
+5. **Compensation** (Example: $190k+ minimum threshold)
+
+**Note**: These criteria are fully customizable in the `candidate_profile` database table. Adapt them to match your specific job search requirements and priorities.
 
 Overall recommendation categories:
 - **EXCELLENT_MATCH**: 8-10 score, strong fit across dimensions
@@ -151,14 +266,16 @@ AI Assessment: Perfect match - infrastructure focus...
 
 ---
 
-## Cost Analysis
+## Cost Analysis (Example)
 
-**Daily Breakdown:**
-- Apify API: $0.48 (120 jobs × $0.004)
-- Claude AI: $0.36 (120 jobs × $0.003)
-- Gmail API: $0.00 (included)
-- n8n hosting: $1.00 (amortized)
-- **Total: $1.84/day** ($55/month, $671/year)
+**Daily Breakdown (monitoring 40 companies, ~120 jobs/day):**
+- Apify API: ~$0.48 (120 jobs × $0.004)
+- Claude AI: ~$0.36 (120 jobs × $0.003)
+- Gmail API: $0.00 (free tier)
+- n8n hosting: ~$1.00/day (varies by provider)
+- **Total: ~$1.84/day** (~$55/month, ~$671/year)
+
+**Note**: Your actual costs will vary based on the number of companies monitored and their job posting frequency.
 
 **ROI:**
 - Time saved: 2-3 hours/day of manual searching
@@ -198,18 +315,20 @@ AI Assessment: Perfect match - infrastructure focus...
 
 📚 **Complete documentation available in repository:**
 
-- **WORKFLOW_DOCUMENTATION_README.md** - Comprehensive system guide (116KB)
+- **Operator_Guide.md** - Comprehensive system guide
   - Architecture deep-dive
-  - All three workflows explained
+  - All four workflows explained
   - Database schema
+  - Profile externalization pattern
   - Cost analysis
   - Troubleshooting guide
   - Production checklist
   - 30+ FAQ entries
 
-- **Loop_Companies.json** - Workflow 1 (14 nodes)
-- **Loop_Jobs.json** - Workflow 2 (9 nodes)
-- **Send_Email.json** - Workflow 3 (5 nodes)
+- **Main.json** - Main orchestrator v3.1 (5 nodes)
+- **Loop_Companies.json** - Workflow 1 v3.1 (14 nodes)
+- **Loop_Jobs.json** - Workflow 2 v4.1 (8 nodes)
+- **Send_Email.json** - Workflow 3 v2.1 (5 nodes)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
@@ -227,10 +346,11 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 1. **Import Workflows**
    ```bash
-   # Import all three workflow JSON files into n8n
-   # Loop_Companies_FULLY_DOCUMENTED.json
-   # Loop_Jobs_FULLY_DOCUMENTED.json
-   # Send_Email_FULLY_DOCUMENTED.json
+   # Import all four workflow JSON files into n8n
+   # Main.json (v3.1)
+   # Loop_Companies.json (v3.1)
+   # Loop_Jobs.json (v4.1)
+   # Send_Email.json (v2.1)
    ```
 
 2. **Configure Credentials**
@@ -241,45 +361,65 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 3. **Setup Database Tables**
    ```sql
    -- Create required tables
+   CREATE TABLE candidate_profile (
+     profile_id VARCHAR(50) PRIMARY KEY,
+     profile_name VARCHAR(100),
+     resume_text TEXT,
+     target_criteria TEXT,
+     notes TEXT
+   );
+
    CREATE TABLE companies (
      company_id VARCHAR(50) PRIMARY KEY,
      company_name VARCHAR(100),
      domain VARCHAR(100)
    );
-   
+
    CREATE TABLE jobs (...);  -- See documentation
    CREATE TABLE email_queue (...);
    CREATE TABLE errors (...);
-   
+
    -- Add indexes
    CREATE INDEX idx_email_queue_workflow ON email_queue(workflow_run_id);
    ```
 
-4. **Populate Companies**
+4. **Populate Candidate Profile**
+   ```sql
+   -- Add your profile data
+   INSERT INTO candidate_profile VALUES (
+     'default',           -- profile_id
+     'Your Name',         -- profile_name
+     'Your complete resume/experience text here...',  -- resume_text
+     '{"titleSearch": ["product manager"], "titleExclusionSearch": ["product marketing"]}',  -- target_criteria
+     'Optional notes'     -- notes
+   );
+   ```
+
+5. **Populate Companies**
    ```sql
    -- Add target companies
-   INSERT INTO companies VALUES 
+   INSERT INTO companies VALUES
      ('anthropic', 'Anthropic', 'anthropic.com'),
      ('openai', 'OpenAI', 'openai.com'),
      -- ... add 40 companies
    ```
 
-5. **Update Configuration**
-   - Set recipient email in Send Email workflow
-   - Update candidate profile in Loop Jobs workflow
-   - Adjust scoring criteria if needed
+6. **Update Configuration**
+   - Set recipient email in Send Email v2.1 workflow
+   - Verify profile_id filter in Main v3.1 (defaults to 'default')
+   - Adjust scoring criteria in Loop Jobs v4.1 prompt if needed
 
-6. **Test Execution**
+7. **Test Execution**
    ```bash
    # Test with 3 companies first
-   # 1. Run Loop Companies manually
+   # 1. Run Main v3.1 manually
    # 2. Verify jobs in database
    # 3. Check email received
    # 4. Review formatting
    ```
 
-7. **Schedule Daily Run**
-   - Add cron trigger to Loop Companies: `0 6 * * *` (6 AM daily)
+8. **Schedule Daily Run**
+   - Add cron trigger to Main v3.1: `0 6 * * *` (6 AM daily)
    - Monitor first week for issues
    - Review cost and performance
 
@@ -335,7 +475,7 @@ WHERE processed_at >= CURRENT_DATE - INTERVAL '7 days';
 - Clear email_queue before runs
 - Add unique constraint on (workflow_run_id, job_id)
 
-See WORKFLOW_DOCUMENTATION_README.md for detailed troubleshooting guide.
+See Operator_Guide.md for detailed troubleshooting guide.
 
 ---
 
@@ -344,20 +484,32 @@ See WORKFLOW_DOCUMENTATION_README.md for detailed troubleshooting guide.
 ### Adding More Companies
 Simply add rows to companies table - no workflow changes needed.
 
+### Updating Your Profile
+Update the `candidate_profile` table with new resume or criteria - no workflow changes needed.
+```sql
+UPDATE candidate_profile
+SET resume_text = 'Updated resume text...',
+    target_criteria = '{"titleSearch": ["..."], ...}'
+WHERE profile_id = 'default';
+```
+
+### Supporting Multiple Users
+Add multiple profiles to `candidate_profile` table, modify Main v3.1 to select different profile_id.
+
 ### Customizing AI Criteria
-Update candidate profile and scoring criteria in Loop Jobs workflow.
+Update scoring criteria in Loop Jobs v4.1 AI prompt or modify `target_criteria` in database.
 
 ### Different Email Formats
-Modify HTML template in Build Email node - test with pin data.
+Modify HTML template in Send Email v2.1 Build Email node - test with pin data.
 
 ### Multiple Recipients
-Add comma-separated emails or loop in Send Email workflow.
+Add comma-separated emails or loop in Send Email v2.1 workflow.
 
 ### Alternative Delivery
 Replace Gmail node with Slack, Discord, or database save.
 
 ### Weekly Digests
-Change cron schedule and modify email query to include last 7 days.
+Change cron schedule in Main v3.1 and modify email query to include last 7 days.
 
 ---
 
@@ -380,11 +532,13 @@ Change cron schedule and modify email query to include last 7 days.
 ## Project Status
 
 **Current State:**
-- ✅ Production-ready three-workflow architecture
+- ✅ Production-ready four-workflow architecture with orchestrator
+- ✅ Profile externalization (multi-user ready)
 - ✅ Comprehensive documentation (116KB)
 - ✅ Fault-tolerant design with error handling
 - ✅ Cost-efficient ($1.84/day)
 - ✅ Complete traceability and monitoring
+- ✅ Clean workflow files (no PII in JSON)
 
 **Future Enhancements:**
 - [ ] Web dashboard for historical analysis
@@ -396,24 +550,51 @@ Change cron schedule and modify email query to include last 7 days.
 
 ---
 
+## Support & Maintenance
+
+This project is provided **as-is** with no guarantees or warranties:
+
+- ✅ **Issues and pull requests are welcome** - Bug reports, feature requests, and contributions are appreciated
+- ⏱️ **Response time is not guaranteed** - This is maintained alongside other commitments; replies may take days or weeks
+- 🎯 **Prioritization follows managed service roadmap** - Features aligned with the managed offering may be prioritized over community requests
+- 🔧 **Best-effort support only** - No SLAs, uptime guarantees, or dedicated support channels
+
+If you need reliable support, guaranteed response times, or hands-off maintenance, consider the managed service option.
+
+---
+
 ## Contributing
 
-This is currently a personal project configured for my specific job search needs. However, the architecture is designed to be generalizable.
+This project is open source and contributions are welcome. The architecture is designed to be generalizable beyond the original use case.
 
-If you're interested in adapting RoleFinder for your own use:
+**How to adapt RoleFinder for your own use:**
 1. Fork the repository
-2. Update the candidate profile in Loop Jobs
-3. Modify scoring criteria to match your targets
-4. Populate companies table with your target list
-5. Configure your own API credentials
+2. Update the `candidate_profile` table with your resume and criteria
+3. Modify scoring criteria in Loop Jobs v4.1 to match your targets
+4. Populate `companies` table with your target list
+5. Configure your own API credentials (Apify, Anthropic, Gmail)
 
-Pull requests for bug fixes or architectural improvements are welcome.
+**Pull requests are welcome for:**
+- Bug fixes and error handling improvements
+- Performance optimizations
+- Architectural enhancements
+- Documentation improvements
+- New features that align with the project's goals (see Non-Goals section)
+
+Please open an issue first for major changes to discuss the approach.
 
 ---
 
 ## License
 
-This project is currently unlicensed and for personal use. A proper open-source license may be added in the future.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+
+In short:
+- ✅ You are free to use, modify, and self-host RoleFinder
+- ✅ If you redistribute modified versions, you must also provide source code under the same license
+- ✅ No warranty is provided - use at your own risk
+
+See the [LICENSE](LICENSE) file for full legal terms.
 
 ---
 
@@ -429,14 +610,56 @@ Inspired by the need for intelligent, low-noise job discovery that respects your
 
 ---
 
-## Contact
+## About the Creator
 
-For questions about architecture or implementation:
-- Open an issue in this repository
-- Review the comprehensive documentation in WORKFLOW_DOCUMENTATION_README.md
+RoleFinder was created by **Ted Beatie**, a Senior Technical Product Manager with [X years] of experience in [domain/industry - e.g., developer tools, infrastructure, platform engineering].
+
+### Why I Built This
+
+After years of relying on traditional job boards, I grew frustrated with the noise-to-signal ratio. LinkedIn, Indeed, and other platforms surface hundreds of irrelevant roles while missing opportunities at companies I actually wanted to work for. I needed a system that:
+
+- **Monitored specific companies** where I wanted to work, not every company on the internet
+- **Used AI to evaluate fit** based on my actual experience and criteria, not keyword matching
+- **Delivered high-signal alerts** instead of overwhelming me with noise
+- **Saved hours of manual searching** every single day
+
+RoleFinder is that system. I built it for myself, and now I use it daily to monitor [40/X] target companies and receive personalized job digests every morning.
+
+### From Personal Tool to Open Source
+
+What started as a personal automation project evolved into a production-grade system with:
+- Clean architecture separating discovery, evaluation, and delivery
+- Externalized profile management for multi-user support
+- Comprehensive error handling and fault tolerance
+- 116KB of documentation suitable for junior developer handoff
+
+I'm open-sourcing RoleFinder because I believe others face the same frustrations with traditional job search. Whether you're a senior engineer, product manager, designer, or any other role - if you know *where* you want to work but struggle to track opportunities, this system can help.
+
+### Managed Service
+
+For those who want the benefits without the technical setup, I now offer a [fully managed service](#managed-service-option) where I handle all infrastructure, monitoring, and maintenance.
 
 ---
 
-**RoleFinder** - Intelligent job monitoring for senior technical product managers.
+## Contact
 
-*Last Updated: December 29, 2025*
+### For Self-Hosted Users
+
+For questions about architecture, implementation, or technical issues:
+- **GitHub Issues**: Open an issue in this repository for bugs or feature requests
+- **Documentation**: Review Operator_Guide.md for comprehensive technical details
+- **Support**: Best-effort community support via GitHub
+
+### For Managed Service Inquiries
+
+Interested in having RoleFinder fully managed for you?
+- **Email**: [TBD - will be added before publication]
+- **Website**: [TBD - will be added before publication]
+- **Response Time**: Within 24-48 hours
+- **Pricing**: Contact for personalized quote based on your needs
+
+---
+
+**RoleFinder** - Intelligent role monitoring for active job-seekers.
+
+*Last Updated: January 17, 2026*
