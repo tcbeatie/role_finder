@@ -64,8 +64,8 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 
 Interested in the managed service? **Contact for pricing and availability:**
 
-- **Email**: [TBD - will be added before publication]
-- **Website**: [TBD - will be added before publication]
+- **Email**: [finder@launchbridge.co](mailto:finder@launchbridge.co)
+- **Website**: [https://www.launchbridge.co/rolefinder/](https://www.launchbridge.co/rolefinder/)
 - **Response Time**: Within 24-48 hours
 
 ---
@@ -465,8 +465,6 @@ WHERE processed_at >= CURRENT_DATE - INTERVAL '7 days';
 - Clear email_queue before runs
 - Add unique constraint on (workflow_run_id, job_id)
 
-See Operator_Guide.md for detailed troubleshooting guide.
-
 ---
 
 ## Extending RoleFinder
@@ -637,14 +635,13 @@ For those who want the benefits without the technical setup, I now offer a [full
 
 For questions about architecture, implementation, or technical issues:
 - **GitHub Issues**: Open an issue in this repository for bugs or feature requests
-- **Documentation**: Review Operator_Guide.md for comprehensive technical details
 - **Support**: Best-effort community support via GitHub
 
 ### For Managed Service Inquiries
 
 Interested in having RoleFinder fully managed for you?
-- **Email**: [TBD - will be added before publication]
-- **Website**: [TBD - will be added before publication]
+- **Email**: [finder@launchbridge.co](mailto:finder@launchbridge.co)
+- **Website**: [https://www.launchbridge.co/rolefinder/](https://www.launchbridge.co/rolefinder/)
 - **Response Time**: Within 24-48 hours
 - **Pricing**: Contact for personalized quote based on your needs
 
