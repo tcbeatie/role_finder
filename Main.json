@@ -1,27 +1,27 @@
 {
-  "name": "Main v2",
+  "name": "Main v3.1",
   "nodes": [
     {
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -144,
-        0
+        0,
+        -144
       ],
-      "id": "53702eac-fb81-4668-87bb-2c0fbbc07e01",
+      "id": "b61ca1f9-b142-478f-895b-0835071bdf09",
       "name": "Start",
-      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 1: START (MANUAL TRIGGER)\n═══════════════════════════════════════════════════════════════════════════\nWorkflow Entry Point - Top-level orchestrator for entire RoleRadar system\n\nWhat it does:\n- Starts the complete job monitoring pipeline when you click 'Execute workflow'\n- This is the NEW top-level workflow that orchestrates all sub-workflows\n- Replaces the old pattern where Loop Companies was the entry point\n\nArchitecture change:\nOLD: Loop Companies → Loop Jobs → Send Email\nNEW: Main → Loop Companies → Loop Jobs → Send Email\n       ↑\n     Profile loaded here (once) and passed down\n\nWhy this change:\n- Profile data externalized from hardcoded to database\n- Loaded ONCE at top level, not repeatedly in child workflows\n- Enables future multi-profile support (change profile_id filter)\n- Cleaner separation: Main = orchestration, Loop Companies = processing\n\nHow to use:\n- In n8n UI, click the 'Execute workflow' button\n- Or schedule this workflow to run automatically (cron: 0 6 * * *)\n- Profile data flows automatically to all child workflows\n\nScheduling recommendation:\n- Cron: 0 6 * * * (6:00 AM daily)\n- Timezone: Set to your local time in n8n settings\n- First run: Monitor closely for any issues\n\nNext node: Load Profile\n═══════════════════════════════════════════════════════════════════════════"
+      "notes": "═════════════════════════\n  NODE 1: START (MANUAL TRIGGER)\n═════════════════════════\n  Workflow Entry Point - Top-level orchestrator\n  for entire RoleFinder system\n\n  What it does:\n  - Starts the complete job monitoring pipeline\n  when you click 'Execute workflow'\n  - This is the top-level workflow that\n  orchestrates all sub-workflows\n  - Replaces the old pattern where Loop\n  Companies was the entry point\n\n  -  Profile loaded here (once) and passed down\n  - Enables future multi-profile support (change\n  profile_id filter)\n\n  How to use:\n  - In n8n UI, click the 'Execute workflow' button\n  - Or schedule this workflow to run\n  automatically (cron: 0 6 * * *)\n  - Profile data flows automatically to all\n  child workflows"
     },
     {
       "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "awhtlWZTqAQj52vG",
+          "value": "3do7D0YroLNmFCnv",
           "mode": "list",
-          "cachedResultName": "profile_data",
-          "cachedResultUrl": "/projects/MIniGOtG65wFTuKC/datatables/awhtlWZTqAQj52vG"
+          "cachedResultName": "Profile_Data",
+          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/3do7D0YroLNmFCnv"
         },
         "filters": {
           "conditions": [
@@ -33,52 +33,23 @@
         }
       },
       "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1,
-      "position": [
-        32,
-        0
-      ],
-      "id": "0e553ef9-cc22-48aa-8c49-56434c59c0d1",
-      "name": "Load Profile",
-      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 2: LOAD PROFILE DATA\n═══════════════════════════════════════════════════════════════════════════\nLoads candidate profile from database for AI evaluation\n\nPurpose:\n- Retrieves resume, experience, and target job criteria\n- Loaded ONCE at workflow start (not repeatedly in child workflows)\n- This profile data flows through entire pipeline automatically\n\nDatabase table: profile_data\nExpected schema:\n- profile_id: string (PRIMARY KEY) - \"default\", \"profile_1\", etc.\n- profile_name: string - \"Ted Beatie\", \"Senior PM Profile\"\n- resume_text: text - Complete resume/experience summary\n- target_criteria: text - Job search criteria and preferences\n- created_at: timestamp - When profile was created\n- updated_at: timestamp - When profile was last modified\n\nQuery filter:\n- profile_id = \"default\" → Loads the default/primary profile\n- To use different profile: Change \"default\" to \"profile_1\", etc.\n- Future: Could make this dynamic based on user selection\n\nWhat gets loaded:\n{\n  profile_id: \"default\",\n  profile_name: \"Ted Beatie - Senior Technical PM\",\n  resume_text: \"TED BEATIE - PRODUCT LEADER PROFILE\\n\\nSUMMARY:\\n...\",\n  target_criteria: \"Titles: Senior/Lead/Principal PM\\nFocus: Infrastructure...\",\n  created_at: \"2025-12-29T10:00:00Z\",\n  updated_at: \"2025-12-29T10:00:00Z\"\n}\n\nWhy externalized:\nOLD approach: Resume hardcoded in Loop Jobs workflow\n- Problem: Hard to update, version control difficult, no multi-profile support\n\nNEW approach: Resume in database, loaded once at top\n- Benefits:\n  1. Easy updates: Edit database row, no workflow changes needed\n  2. Version control: Track changes in database with updated_at\n  3. Multi-profile ready: Add more profiles, select via profile_id\n  4. Performance: Load once, not 120+ times during workflow\n  5. Cleaner code: Workflows focus on logic, not data storage\n\nData flow:\n1. This node loads profile → passes to Loop Companies\n2. Loop Companies adds to each job as _context_profile_data\n3. Loop Jobs receives jobs with embedded profile\n4. AI evaluation uses profile to score job fit\n\nOutput: Single item with complete profile data\n\nNext node: Call 'Loop Companies v2.1'\n═══════════════════════════════════════════════════════════════════════════"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "Wj0kFKBjCECg1MBw",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/Wj0kFKBjCECg1MBw",
-          "cachedResultName": "Loop Companies v2.1"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
+      "typeVersion": 1.1,
       "position": [
         208,
         0
       ],
-      "id": "1927cf42-f846-4f87-b81b-a62ed1ace537",
-      "name": "Call 'Loop Companies v2.1'",
-      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 3: CALL LOOP COMPANIES SUB-WORKFLOW\n═══════════════════════════════════════════════════════════════════════════\nExecutes the company discovery and job processing workflow\n\nPurpose:\n- Orchestrates company-by-company job discovery\n- Passes profile data from parent to child workflow\n- Handles all company iteration and error management\n- Returns control when all companies complete\n\nWorkflow called: Loop Companies v2.1\nInput: Profile data from Load Profile node\n- n8n automatically passes data from previous node\n- Profile available as $json in child workflow\n\nWhat Loop Companies v2.1 does:\n1. Loads 40 companies from companies table\n2. Iterates one company at a time (fault tolerance)\n3. For each company:\n   - Calls Apify API to discover jobs\n   - Enriches jobs with profile data (_context_profile_data)\n   - Saves raw jobs to database (backup)\n   - Calls Loop Jobs sub-workflow with enriched jobs\n4. Logs errors for failed companies\n5. Returns summary when all complete\n\nData flow:\nMain (profile) → Loop Companies → Loop Jobs\n                       ↓               ↓\n                  companies table   AI evaluation\n                       ↓               ↓\n                  Apify API      email_queue table\n                       ↓\n                  jobs table\n\nExecution time:\n- 40 companies × ~10 seconds per company = ~7-8 minutes total\n- Includes: API calls, database saves, sub-workflow calls\n- May vary based on job counts and API response times\n\nWaiting behavior:\n- This node WAITS for Loop Companies to complete entirely\n- All 40 companies processed before advancing\n- All jobs evaluated by AI before advancing\n- This ensures complete data set for email generation\n\nError handling:\n- Loop Companies handles errors internally\n- Failed companies logged to errors table\n- Workflow continues even if some companies fail\n- Main workflow always completes (no crash)\n\nReturn value:\nLoop Companies returns:\n{\n  workflow_run_id: 67890,\n  companies_processed: 40,\n  jobs_found: 120,\n  errors: 5,\n  execution_time_ms: 456000\n}\n\nThis return data flows to Send Email for reference.\n\nNext node: Call 'Send Email v1.1'\n═══════════════════════════════════════════════════════════════════════════"
+      "id": "76f791fe-9a72-4af8-870b-458fe4cc51db",
+      "name": "Load Profile",
+      "notes": "═════════════════════════\n  NODE 2: LOAD PROFILE DATA  ═════════════════════════ Loads candidate profile from database for AI\n evaluation\n\n  Purpose:\n  - Retrieves resume, experience, and target job criteria\n  - Loaded ONCE at workflow start (not\n  repeatedly in child workflows)\n  - This profile data flows through entire\n  pipeline automatically\n\n  Database table: profile_data\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) -\n  \"default\", \"profile_1\", etc.\n  - profile_name: string - [name]\n  - resume_text: text - Complete\n  resume/experience summary\n  - target_criteria: text - Job search criteria\n  and preferences\n\n  Query filter:\n  - profile_id = \"default\" → Loads the\n  default/primary profile\n  - To use different profile: Change \"default\"\n  to \"profile_1\", etc.\n  - Future: Could make this dynamic based on\n  user selection\n\n  Data flow:\n  1. This node loads profile → passes to Loop\n  Companies\n  2. Loop Companies adds to each job as\n  _context_profile_data\n  3. Loop Jobs receives jobs with embedded profile\n  4. AI evaluation uses profile to score job fit\n\n  Output: Single item with complete profile data"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "D94rGBsDryxU4fAa",
+          "value": "aDwfiKMpyD7fz58g",
           "mode": "list",
-          "cachedResultUrl": "/workflow/D94rGBsDryxU4fAa",
-          "cachedResultName": "Send Email v1.1"
+          "cachedResultUrl": "/workflow/aDwfiKMpyD7fz58g",
+          "cachedResultName": "Loop Companies v3.1"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -96,24 +67,61 @@
         416,
         0
       ],
-      "id": "e3524f1c-0243-44f8-b2ce-fbfa42a5f399",
-      "name": "Call 'Send Email v1.1'",
-      "COMMENT": "═══════════════════════════════════════════════════════════════════════════\nNODE 4: CALL SEND EMAIL SUB-WORKFLOW\n═══════════════════════════════════════════════════════════════════════════\nExecutes the email generation and delivery workflow\n\nPurpose:\n- Aggregates all evaluated jobs from email_queue table\n- Generates professional HTML digest email\n- Delivers via Gmail API\n- Completes the daily job monitoring cycle\n\nWorkflow called: Send Email v1.1\nInput: Summary data from Loop Companies\n- Receives workflow_run_id for querying email_queue\n- Profile data NOT needed (already embedded in job cards)\n\nWhat Send Email v1.1 does:\n1. Queries email_queue for all jobs from this workflow run\n2. Sorts jobs by overall_score (best matches first)\n3. Groups by recommendation category (excellent/good/consider)\n4. Generates dynamic email subject line\n5. Builds HTML email with all formatted job cards\n6. Sends via Gmail API\n7. Returns delivery confirmation\n\nData sources:\nSend Email queries email_queue table:\n- WHERE workflow_run_id = {{ $json.workflow_run_id }}\n- Gets ALL 120 jobs evaluated during this run\n- Jobs already contain:\n  - Complete job details\n  - AI evaluation scores\n  - Formatted HTML cards\n  - Profile matching results\n\nEmail structure:\n┌──────────────────────────────────────┐\n│ ðŸŽ¯ Your Daily Job Digest          │\n│ Monday, December 29, 2025          │\n├──────────────────────────────────────┤\n│ Summary: 15 Excellent, 45 Strong   │\n├──────────────────────────────────────┤\n│ [Job Card 1 - Score 10/10]         │\n│ [Job Card 2 - Score 9/10]          │\n│ ...                                │\n│ [Job Card 120 - Score 3/10]        │\n├──────────────────────────────────────┤\n│ Footer: Workflow Run ID #67890     │\n└──────────────────────────────────────┘\n\nExecution time:\n- Query: ~1 second (120 rows)\n- Email generation: ~1 second\n- Gmail API: ~1 second\n- Total: ~3 seconds\n\nDelivery:\n- Recipient: tcbeatie@gmail.com (configured in Send Email workflow)\n- Method: Gmail API (OAuth2 authenticated)\n- Appears in: Gmail Inbox + Sent folder\n- Deliverability: >99% (verified sender, proper authentication)\n\nError handling:\n- Gmail API failures logged in Send Email execution\n- Retry logic: 3 attempts with exponential backoff\n- If all attempts fail: Email saved to database for manual retry\n- User notified via separate error notification (if configured)\n\nReturn value:\nSend Email returns:\n{\n  status: \"success\",\n  email_sent: true,\n  recipient: \"tcbeatie@gmail.com\",\n  jobs_included: 120,\n  message_id: \"<abc123@mail.gmail.com>\",\n  delivered_at: \"2025-12-29T06:08:15Z\"\n}\n\nWorkflow completion:\nAfter this node executes:\n- Main workflow completes\n- User receives daily digest email\n- Database contains:\n  - jobs table: Raw job data\n  - email_queue table: Formatted job cards\n  - errors table: Any failed companies\n- Ready for tomorrow's scheduled run\n\nNext: [Workflow Complete - No further nodes]\n═══════════════════════════════════════════════════════════════════════════"
+      "id": "a2350784-d67d-4ee6-bcfd-8bdccdb70295",
+      "name": "Call 'Loop Companies v3.1'",
+      "notes": "═════════════════════════\n  NODE 3: CALL LOOP COMPANIES SUB-WORKFLOW  ═════════════════════════\n  Executes the company discovery and job\n  processing workflow\n\n  Purpose:\n  - Orchestrates company-by-company job discovery\n  - Passes profile data from parent to child workflow\n  - Handles all company iteration and error\n  management\n  - Returns control when all companies complete\n\n  Workflow called: Loop Companies v3.1\n  Input: Profile data from Load Profile node\n  - n8n automatically passes data from previous node\n  - Profile available as $json in child workflow\n\n  What Loop Companies v3.1 does:\n  1. Loads companies from companies table\n  2. Iterates one company at a time (fault tolerance)\n  3. For each company:\n     - Calls Apify API to discover jobs\n     - Enriches jobs with profile data\n  (_context_profile_data)\n     - Saves raw jobs to database (backup)\n     - Calls Loop Jobs sub-workflow with enriched jobs\n  4. Logs errors for failed companies\n  5. Returns summary when all complete\n\n  Execution time:\n  - ~40 companies × ~10 seconds per company = ~7-8 minutes total\n  - Includes: API calls, database saves,\n  sub-workflow calls\n  - May vary based on job counts and API\n  response times\n\n  Waiting behavior:\n  - This node WAITS for Loop Companies to\n  complete entirely\n  - All companies processed before advancing\n  - All jobs evaluated by AI before advancing\n  - This ensures complete data set for email\n  generation\n\n  Error handling:\n  - Loop Companies handles errors internally\n  - Failed companies logged to errors table\n  - Workflow continues even if some companies fail\n  - Main workflow always completes (no crash)\n\n  Return value:\n  Loop Companies returns:\n  {\n    workflow_run_id: 67890,\n    companies_processed: 40,\n    jobs_found: 120,\n    errors: 5,\n    execution_time_ms: 456000\n  }\n\n  This return data flows to Send Email for reference."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "rP3O63GIhuk46JSI",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/rP3O63GIhuk46JSI",
+          "cachedResultName": "Send Email v2.1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "7e245e58-e5dd-4b7d-848c-c46cb9c73800",
+      "name": "Call 'Send Email v2.1'",
+      "notes": "═════════════════════════\n  NODE 4: CALL SEND EMAIL SUB-WORKFLOW ═════════════════════════\n  Executes the email generation and delivery workflow\n\n  Purpose:\n  - Aggregates all evaluated jobs from\n  email_queue table\n  - Generates professional HTML digest email\n  - Delivers via Gmail API\n  - Completes the daily job monitoring cycle\n\n  Workflow called: Send Email v2.1\n  Input: Summary data from Loop Companies\n  - Receives workflow_run_id for querying email_queue\n  - Profile data NOT needed (already embedded in\n  job cards)\n\n  What Send Email v2.1 does:\n  1. Queries email_queue for all jobs from this\n  workflow run\n  2. Sorts jobs by overall_score (best matches first)\n  3. Groups by recommendation category\n  (excellent/good/consider)\n  4. Generates dynamic email subject line\n  5. Builds HTML email with all formatted job cards\n  6. Sends via Gmail API\n  7. Returns delivery confirmation\n\n  Data sources:\n  Send Email queries email_queue table:\n  - WHERE workflow_run_id = {{\n  $json.workflow_run_id }}\n  - Gets ALL jobs evaluated during this run\n  - Jobs already contain:\n    - Complete job details\n    - AI evaluation scores\n    - Formatted HTML cards\n    - Profile matching results\n\n  Email structure:\n  ┌───────────────────────┐\n  │ 🎯 Your Daily Job Digest          │\n  │ Monday, December 29, 2025          │\n  ├───────────────────────┤\n  │ Summary: 15 Excellent, 45 Strong   │\n  ├───────────────────────┤\n  │ [Job Card 1 - Score 10/10]         │\n  │ [Job Card 2 - Score 9/10]          │\n  │ ...                                │\n  │ [Job Card 120 - Score 3/10]        │\n  ├───────────────────────┤\n  │ Footer: Workflow Run ID #67890     │\n  └───────────────────────┘\n\n  Execution time:\n  - Query: ~1 second (120 rows)\n  - Email generation: ~1 second\n  - Gmail API: ~1 second\n  - Total: ~3 seconds\n\n  Delivery:\n  - Recipient: [configured in Send Email workflow]\n  - Method: Gmail API (OAuth2 authenticated)\n  - Appears in: Gmail Inbox + Sent folder\n  - Deliverability: >99% (verified sender,\n  proper authentication)\n\n  Error handling:\n  - Gmail API failures logged in Send Email execution\n  - Retry logic: 3 attempts with exponential backoff\n  - If all attempts fail: Email saved to\n  database for manual retry\n  - User notified via separate error\n  notification (if configured)\n\n  Return value:\n  Send Email returns:\n  {\n    status: \"success\",\n    email_sent: true,\n    recipient: \"[email address]\",\n    jobs_included: 120,\n    message_id: \"<abc123@mail.gmail.com>\",\n    delivered_at: \"2025-12-29T06:08:15Z\"\n  }\n\n  Workflow completion:\n  After this node executes:\n  - Main workflow completes\n  - User receives daily digest email\n  - Database contains:\n    - jobs table: Raw job data\n    - email_queue table: Formatted job cards\n    - errors table: Any failed companies\n  - Ready for tomorrow's scheduled run\n"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 4
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a0477895-8424-4d48-a71d-e304429addc6",
+      "name": "Run Daily"
     }
   ],
   "pinData": {},
   "connections": {
-    "Load Profile": {
-      "main": [
-        [
-          {
-            "node": "Call 'Loop Companies v2.1'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Start": {
       "main": [
         [
@@ -125,11 +133,33 @@
         ]
       ]
     },
-    "Call 'Loop Companies v2.1'": {
+    "Load Profile": {
       "main": [
         [
           {
-            "node": "Call 'Send Email v1.1'",
+            "node": "Call 'Loop Companies v3.1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Loop Companies v3.1'": {
+      "main": [
+        [
+          {
+            "node": "Call 'Send Email v2.1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Daily": {
+      "main": [
+        [
+          {
+            "node": "Load Profile",
             "type": "main",
             "index": 0
           }
@@ -137,14 +167,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "availableInMCP": false
   },
-  "versionId": "4cfa24b2-49a7-4ebe-84b9-c01461cfa1f0",
+  "versionId": "24f29208-a3f2-4870-a657-b5fdf0bd1e6b",
   "meta": {
-    "instanceId": "7534cf3caceb89a410b24188fae76f3b891a0be6d8178ba8a99d892ed4a4777d"
+    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
   },
-  "id": "zPPhgQmqSKYeXTpB",
+  "id": "Gah5o9YIxsU7l8mQ",
   "tags": []
 }
