@@ -601,7 +601,7 @@ Inspired by the need for intelligent, low-noise job discovery that respects your
 
 ## About the Creator
 
-RoleFinder was created by **Ted Beatie**, a Senior Technical Product Manager with over 20 years of experience in developer tools, infrastructure, and platform engineering.
+RoleFinder was created by **[Ted Beatie](https://tedbeatie.com/)**, a Senior Technical Product Manager with over 20 years of experience in developer tools, infrastructure, and platform engineering.
 
 ### Why I Built This
 
