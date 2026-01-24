@@ -1,6 +1,6 @@
 # RoleFinder
 
-**An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via daily digest.**
+**An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via email digest.**
 
 ## Who This Project Is For
 
@@ -10,7 +10,7 @@ This repository is intended for **developers and technical users** who want to r
 
 ---
 
-RoleFinder is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional daily email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
+RoleFinder is a production-grade automation system built on n8n that monitors target companies for relevant job postings, evaluates each position using AI against your specific criteria, and delivers a professional email digest sorted by match quality. Designed by a senior technical product manager for use by anyone, it surfaces high-signal opportunities with minimal noise through intelligent filtering and multi-dimensional scoring.
 
 ---
 
@@ -18,7 +18,7 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 
 - 🎯 **Targeted Discovery**: Monitors companies via Apify Career Site API
 - 🤖 **AI-Powered Evaluation**: AI scores jobs across 5 dimensions
-- 📧 **Professional Digests**: Daily HTML email with best matches first
+- 📧 **Professional Digests**: HTML email with best matches first
 - 🔄 **Fault Tolerant**: Company-by-company processing survives individual failures
 - 💾 **Complete Tracking**: Raw job data, AI evaluations, and email history preserved
 - 📊 **Cost Efficient**: ~$1.84/day
@@ -75,8 +75,8 @@ Interested in the managed service? **Contact for pricing and availability:**
 RoleFinder is purpose-built for a specific use case. To maintain focus and manage expectations, here's what it deliberately does **not** do:
 
 - **Not a general-purpose job scraper** - Monitors specific target companies, not every job board or career site
-- **Not real-time alerting** - Runs on scheduled intervals (daily), not instant push notifications when jobs are posted
-- **Not guaranteed to catch every posting** - Depends on Apify's data coverage, company career page updates, and API timing
+- **Not real-time alerting** - Runs on scheduled intervals, not instant push notifications when jobs are posted
+- **Not guaranteed to catch every posting** - Depends on data quality, company career page updates, and API timing
 - **Not a replacement for human judgment** - AI provides scoring and recommendations, but final application decisions remain yours
 - **Not an application tracker/CRM** - Doesn't manage applications, interview schedules, follow-ups, or offer negotiations
 - **Not a resume builder or optimizer** - Doesn't generate, rewrite, or improve resumes (uses your existing profile for evaluation)
@@ -121,7 +121,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
 │  WORKFLOW 3: Send Email v2.1                                │
-│  Purpose: Aggregate and deliver daily digest                │
+│  Purpose: Aggregate and deliver email digest                │
 │  Input:   workflow_run_id from Main                         │
 │  Output:  Professional HTML email via Gmail                 │
 └─────────────────────────────────────────────────────────────┘
@@ -142,6 +142,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 3. Loop Companies merges profile with each company in "Merge Data" node
 4. Profile passed to Loop Jobs via `_context_resume_text` and `_context_target_criteria` fields
 5. Loop Jobs uses profile data for AI evaluation without storing it in workflow
+6. Main workflow calls Send Email via sub-workflow execution
 
 ### Workflow Details
 
@@ -649,4 +650,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: January 17, 2026*
+*Last Updated: January 24, 2026*
