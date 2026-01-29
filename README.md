@@ -34,7 +34,7 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 
 - **Zero-Touch Setup**: No n8n installation, API configuration, or workflow imports
 - **Infrastructure Management**: Hosting, monitoring, and uptime guaranteed
-- **API Credential Handling**: Apify, Claude, and Gmail integrations managed
+- **API Credential Handling**: Apify, Claude, and SMTP email integrations managed
 - **Profile Customization**: Your resume, criteria, and target companies configured
 - **Daily Monitoring**: Error resolution and workflow optimization
 - **Ongoing Updates**: Automatic workflow improvements and feature additions
@@ -120,10 +120,10 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email v2.1                                │
+│  WORKFLOW 3: Send Email v2.2                                │
 │  Purpose: Aggregate and deliver email digest                │
-│  Input:   workflow_run_id from Main                         │
-│  Output:  Professional HTML email via Gmail                 │
+│  Input:   workflow_run_id + email from Main                 │
+│  Output:  Professional HTML email via SMTP                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -151,7 +151,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - Loads candidate profile from `candidate_profile` database table
 - Calls Loop Companies v3.1 sub-workflow (passes profile data)
 - Waits for all companies to complete processing
-- Calls Send Email v2.1 sub-workflow (passes workflow_run_id)
+- Calls Send Email v2.2 sub-workflow (passes workflow_run_id and email)
 - Completes when email is delivered
 
 **Loop Companies v3.1 (14 nodes)** - Job discovery
@@ -179,14 +179,15 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
   - Saves to `email_queue` table with `workflow_run_id`
 - Returns to Loop Companies when all jobs complete
 
-**Send Email v2.1 (5 nodes)** - Email delivery
-- Receives `workflow_run_id` from Main workflow
+**Send Email v2.2 (5 nodes)** - Email delivery
+- Receives `workflow_run_id` and `email` from Main workflow
+- Email address dynamically extracted from profile data
 - Queries `email_queue` for all jobs from this workflow run
 - Aggregates and sorts by AI score (best first)
 - Groups by recommendation category (excellent/good/consider)
 - Generates dynamic subject line based on quality
 - Builds professional HTML email with statistics
-- Sends via Gmail API with delivery confirmation
+- Sends via SMTP (migrated from Gmail API for improved reliability)
 
 ---
 
@@ -195,7 +196,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - **Orchestration**: n8n (workflow automation platform)
 - **Job Discovery**: Apify Career Site Job Listing API
 - **AI Evaluation**: Anthropic Claude Sonnet 4.5
-- **Email Delivery**: Gmail API (OAuth2)
+- **Email Delivery**: SMTP (standard email protocol)
 - **Data Storage**: n8n Data Tables (or PostgreSQL for production)
 - **Deployment**: n8n-hosted, then later Docker-based (n8n + database)
 
@@ -272,7 +273,7 @@ AI Assessment: Perfect match - infrastructure focus...
 **Daily Breakdown (monitoring 40 companies, ~120 jobs/day):**
 - Apify API: ~$0.48 (120 jobs × $0.004)
 - Claude AI: ~$0.36 (120 jobs × $0.003)
-- Gmail API: $0.00 (free tier)
+- SMTP: $0.00 (typically free tier for most providers)
 - n8n hosting: ~$1.00/day (varies by provider)
 - **Total: ~$1.84/day** (~$55/month, ~$671/year)
 
@@ -316,10 +317,10 @@ AI Assessment: Perfect match - infrastructure focus...
 📚 **Complete documentation available in repository:**
 
 - **README.md** - You're looking at it!
-- **Main.json** - Main orchestrator v3.1 (5 nodes)
+- **Main.json** - Main orchestrator v3.2 (5 nodes)
 - **Loop_Companies.json** - Workflow 1 v3.1 (14 nodes)
 - **Loop_Jobs.json** - Workflow 2 v4.1 (8 nodes)
-- **Send_Email.json** - Workflow 3 v2.1 (5 nodes)
+- **Send_Email.json** - Workflow 3 v2.2 (5 nodes)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
@@ -331,30 +332,31 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 - n8n instance (cloud or self-hosted)
 - Apify account with Career Site API access
 - Anthropic API key (Claude access)
-- Gmail account with API enabled
+- SMTP email account (any provider)
 
 ### Setup Steps
 
 1. **Import Workflows**
    ```bash
    # Import all four workflow JSON files into n8n
-   # Main.json (v3.1)
+   # Main.json (v3.2)
    # Loop_Companies.json (v3.1)
    # Loop_Jobs.json (v4.1)
-   # Send_Email.json (v2.1)
+   # Send_Email.json (v2.2)
    ```
 
 2. **Configure Credentials**
    - Apify OAuth2: Connect account
    - Anthropic API: Add API key
-   - Gmail OAuth2: Connect account
+   - SMTP: Configure email credentials (username/password)
 
 3. **Setup Database Tables**
    ```sql
    -- Create required tables
    CREATE TABLE candidate_profile (
      profile_id VARCHAR(50) PRIMARY KEY,
-     profile_name VARCHAR(100),
+     full_name VARCHAR(100),
+     email VARCHAR(255),
      resume_text TEXT,
      target_criteria TEXT,
      notes TEXT
@@ -378,11 +380,12 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    ```sql
    -- Add your profile data
    INSERT INTO candidate_profile VALUES (
-     'default',           -- profile_id
-     'Your Name',         -- profile_name
+     'default',                    -- profile_id
+     'Your Name',                  -- full_name
+     'your.email@example.com',     -- email (used for digest delivery)
      'Your complete resume/experience text here...',  -- resume_text
      '{"titleSearch": ["product manager"], "titleExclusionSearch": ["product marketing"]}',  -- target_criteria
-     'Optional notes'     -- notes
+     'Optional notes'              -- notes
    );
    ```
 
@@ -396,21 +399,21 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    ```
 
 6. **Update Configuration**
-   - Set recipient email in Send Email v2.1 workflow
-   - Verify profile_id filter in Main v3.1 (defaults to 'default')
+   - Recipient email is automatically sourced from candidate_profile table
+   - Verify profile_id filter in Main v3.2 (defaults to 'default')
    - Adjust scoring criteria in Loop Jobs v4.1 prompt if needed
 
 7. **Test Execution**
    ```bash
    # Test with 3 companies first
-   # 1. Run Main v3.1 manually
+   # 1. Run Main v3.2 manually
    # 2. Verify jobs in database
    # 3. Check email received
    # 4. Review formatting
    ```
 
 8. **Schedule Daily Run**
-   - Add cron trigger to Main v3.1: `0 6 * * *` (6 AM daily)
+   - Add cron trigger to Main v3.2: `0 6 * * *` (6 AM daily)
    - Monitor first week for issues
    - Review cost and performance
 
@@ -449,8 +452,9 @@ WHERE processed_at >= CURRENT_DATE - INTERVAL '7 days';
 
 **No Email Received**
 - Check Send Email execution log
-- Verify Gmail API credentials
-- Check Sent folder (may not deliver to self)
+- Verify SMTP credentials and server settings
+- Check spam/junk folder
+- Verify email address in candidate_profile table is correct
 
 **Email Queue Empty**
 - Check workflow_run_id matches
@@ -483,22 +487,22 @@ WHERE profile_id = 'default';
 ```
 
 ### Supporting Multiple Users
-Add multiple profiles to `candidate_profile` table, modify Main v3.1 to select different profile_id.
+Add multiple profiles to `candidate_profile` table (each with unique email), modify Main v3.2 to select different profile_id.
 
 ### Customizing AI Criteria
 Update scoring criteria in Loop Jobs v4.1 AI prompt or modify `target_criteria` in database.
 
 ### Different Email Formats
-Modify HTML template in Send Email v2.1 Build Email node - test with pin data.
+Modify HTML template in Send Email v2.2 Build Email node - test with pin data.
 
 ### Multiple Recipients
-Add comma-separated emails or loop in Send Email v2.1 workflow.
+Add multiple profiles to candidate_profile table or modify Send Email v2.2 to send to multiple addresses.
 
 ### Alternative Delivery
-Replace Gmail node with Slack, Discord, or database save.
+Replace SMTP node with Slack, Discord, or database save.
 
 ### Weekly Digests
-Change cron schedule in Main v3.1 and modify email query to include last 7 days.
+Change cron schedule in Main v3.2 and modify email query to include last 7 days.
 
 ---
 
@@ -514,7 +518,7 @@ Change cron schedule in Main v3.1 and modify email query to include last 7 days.
 **Success Rates:**
 - Job discovery: >95% (API availability)
 - AI evaluation: >99% (retry logic)
-- Email delivery: >99% (Gmail API)
+- Email delivery: >99% (SMTP)
 
 ---
 
@@ -561,7 +565,7 @@ This project is open source and contributions are welcome. The architecture is d
 2. Update the `candidate_profile` table with your resume and criteria
 3. Modify scoring criteria in Loop Jobs v4.1 to match your targets
 4. Populate `companies` table with your target list
-5. Configure your own API credentials (Apify, Anthropic, Gmail)
+5. Configure your own API credentials (Apify, Anthropic, SMTP)
 
 **Pull requests are welcome for:**
 - Bug fixes and error handling improvements
@@ -593,7 +597,7 @@ Built with:
 - [n8n](https://n8n.io/) - Workflow automation platform
 - [Apify](https://apify.com/) - Career site job listing API
 - [Anthropic Claude](https://www.anthropic.com/) - AI evaluation engine
-- [Gmail API](https://developers.google.com/gmail/api) - Email delivery
+- SMTP - Email delivery (standard protocol)
 
 Inspired by the need for intelligent, low-noise job discovery that respects your time and expertise.
 
