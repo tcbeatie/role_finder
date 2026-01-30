@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE: BUILD APIFY REQUEST\n// =====================================================================\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  \n  // Parse the target criteria from the profile data (now included in each item)\n  const criteria = JSON.parse(data.target_criteria);\n  \n  return {\n    json: {\n      // === APIFY SEARCH PARAMETERS ===\n      domainFilter: [data.domain],\n      limit: 10,\n      timeRange: \"7d\",\n      titleSearch: criteria.titleSearch,\n      titleExclusionSearch: criteria.titleExclusionSearch,\n      locationSearch: [\"United States\", \"Canada\", \"United Kingdom\", \"Ireland\", \"Netherlands\", \"Germany\"],\n      aiWorkArrangementFilter: [\"Hybrid\", \"Remote OK\", \"Remote Solely\"],\n      \n      // Additional Apify features\n      includeAi: true,\n      includeLinkedIn: true,\n      populateAiRemoteLocationDerived: true,\n      descriptionType: \"text\"\n    }\n  };\n});"
+        "jsCode": "// =====================================================================\n// NODE: BUILD APIFY REQUEST\n// =====================================================================\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  \n  // Parse the target criteria from the profile data (now included in each item)\n  const criteria = JSON.parse(data.target_criteria);\n  \n  return {\n    json: {\n      // === APIFY SEARCH PARAMETERS ===\n      domainFilter: [data.domain],\n      limit: 10,\n      timeRange: \"24h\",\n      titleSearch: criteria.titleSearch,\n      titleExclusionSearch: criteria.titleExclusionSearch,\n      locationSearch: [\"United States\", \"Canada\", \"United Kingdom\", \"Ireland\", \"Netherlands\", \"Germany\"],\n      aiWorkArrangementFilter: [\"Hybrid\", \"Remote OK\", \"Remote Solely\"],\n      \n      // Additional Apify features\n      includeAi: true,\n      includeLinkedIn: true,\n      populateAiRemoteLocationDerived: true,\n      descriptionType: \"text\"\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -730,12 +730,12 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "040dbf0f-2e4b-433c-b317-a85724576dc6",
+  "versionId": "ee21f7b8-f8cc-427c-9718-771ccb193c4f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
