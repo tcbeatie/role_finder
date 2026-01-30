@@ -1,2 +1,2 @@
-﻿company_id,company_name,domain
-acme,"Acme Industries",acme.com
+﻿profile_id,company_id,company_name,domain
+default,acme,"Acme Industries",acme.com
