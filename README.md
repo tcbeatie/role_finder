@@ -95,24 +95,29 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  MAIN v3.1 (Orchestrator)                                   │
-│  Purpose: Load profile and orchestrate complete pipeline    │
+│  MAIN v4.2 (Orchestrator)                                   │
+│  Purpose: Load profiles and orchestrate multi-user pipeline │
 │  Input:   Manual/scheduled trigger                          │
-│  Actions: 1. Load profile from candidate_profile table      │
-│           2. Call Loop Companies v3.1 (with profile)        │
-│           3. Call Send Email v2.1 (after companies done)    │
+│  Actions: 1. Load Profiles from candidate_profile table     │
+│           2. Loop Over Profiles (process each sequentially) │
+│           3. For each profile:                              │
+│              a. Load Companies (filtered by profile_id)     │
+│              b. Merge Profile+Companies                     │
+│              c. Call Loop Companies v4.1                    │
+│              d. Merge Profile+Done                          │
+│              e. Call Send Email v2.3                        │
 └────┬────────────────────────────────────────────────────┬───┘
-     │ Passes profile ↓                                   │
+     │ Passes profile+companies array ↓                   │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 1: Loop Companies v3.1                            │
+│  WORKFLOW 1: Loop Companies v4.1                            │
 │  Purpose: Discover jobs from target companies               │
-│  Input:   Profile data from Main + companies table          │
+│  Input:   Profile+companies array from Main (concatenated)  │
 │  Output:  Raw jobs → database, enriched jobs → Loop Jobs    │
-│  Key:     Merges profile with each company before loop      │
+│  Key:     Splits array, merges profile with each company    │
 └────────────────┬────────────────────────────────────────────┘
                  │ Calls for each company ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 2: Loop Jobs v4.1                                 │
+│  WORKFLOW 2: Loop Jobs v4.2                                 │
 │  Purpose: AI evaluation and HTML card generation            │
 │  Input:   Jobs with _context_* fields (incl. profile data)  │
 │  Output:  Formatted job cards → email_queue table           │
@@ -120,7 +125,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email v2.2                                │
+│  WORKFLOW 3: Send Email v2.3                                │
 │  Purpose: Aggregate and deliver email digest                │
 │  Input:   workflow_run_id + email from Main                 │
 │  Output:  Professional HTML email via SMTP                  │
@@ -144,30 +149,65 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 5. Loop Jobs uses profile data for AI evaluation without storing it in workflow
 6. Main workflow calls Send Email via sub-workflow execution
 
+### Multi-Profile Architecture (Main v4.2)
+
+**Key Innovation**: Single workflow run can process multiple users sequentially.
+
+**Architecture**:
+1. **Load Profiles** node retrieves ALL profiles from `candidate_profile` table
+2. **Loop Over Profiles** node iterates through each profile (batch size: 1)
+3. For each profile iteration:
+   - **Load Companies** filters companies WHERE profile_id = current profile
+   - **Merge Profile+Companies** creates concatenated array [profile, ...companies]
+   - **Call Loop Companies** processes all companies for this profile
+   - **Merge Profile+Done** combines completion data with profile
+   - **Call Send Email** delivers personalized digest to profile's email
+4. Loop advances to next profile after email sent
+
+**Benefits**:
+- **No workflow duplication**: One set of workflows serves all users
+- **Automatic scaling**: Add users by adding database rows
+- **Profile isolation**: Each user's companies and criteria are independent
+- **Personalized digests**: Each email uses that profile's resume and criteria
+- **Simple maintenance**: Update workflows once, all users benefit
+
+**Example**: If you have 3 profiles (Alice, Bob, Carol):
+- Main loads all 3 profiles
+- Iteration 1: Process Alice's companies → Send Alice's email
+- Iteration 2: Process Bob's companies → Send Bob's email
+- Iteration 3: Process Carol's companies → Send Carol's email
+- Total execution time: ~25 minutes (3 profiles × ~8 min each)
+
 ### Workflow Details
 
-**Main v3.1 (5 nodes)** - Top-level orchestrator
+**Main v4.2 (8 nodes)** - Top-level orchestrator with multi-profile support
 - Entry point via manual trigger or cron schedule
-- Loads candidate profile from `candidate_profile` database table
-- Calls Loop Companies v3.1 sub-workflow (passes profile data)
-- Waits for all companies to complete processing
-- Calls Send Email v2.2 sub-workflow (passes workflow_run_id and email)
-- Completes when email is delivered
+- Loads ALL candidate profiles from `candidate_profile` database table
+- Loops over each profile sequentially (enables multi-user support)
+- For each profile:
+  - Loads companies filtered by profile_id
+  - Merges profile with companies into concatenated array
+  - Calls Loop Companies v4.1 sub-workflow (passes profile+companies)
+  - Waits for all companies to complete processing
+  - Merges profile with completion data
+  - Calls Send Email v2.3 sub-workflow (passes workflow_run_id and profile)
+- Single workflow run can process multiple users
 
-**Loop Companies v3.1 (14 nodes)** - Job discovery
-- Receives profile data from Main workflow
-- Loads target companies from `companies` database table
-- Merges profile with each company (1-to-many relationship)
+**Loop Companies v4.1 (14 nodes)** - Job discovery
+- Receives concatenated profile+companies array from Main workflow
+- Companies are pre-filtered by profile_id in Main's Load Companies node
+- Splits array: extracts profile (index 0) and companies (index 1+)
+- Merges profile fields into each company object
 - Iterates one company at a time (fault tolerance)
 - For each company:
   - Calls Apify API to discover jobs
   - Saves raw job data immediately to `jobs` table (backup path)
   - Enriches jobs with `_context_*` fields including profile data
-  - Calls Loop Jobs v4.1 sub-workflow with enriched job data
+  - Calls Loop Jobs v4.2 sub-workflow with enriched job data
 - Handles API errors and no-results gracefully
 - Returns summary to Main when all companies complete
 
-**Loop Jobs v4.1 (8 nodes)** - AI evaluation
+**Loop Jobs v4.2 (8 nodes)** - AI evaluation
 - Receives jobs with `_context_*` fields from Loop Companies
 - Uses `_context_resume_text` from parent (no hardcoded profile)
 - Iterates one job at a time (AI rate limiting + error isolation)
@@ -179,7 +219,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
   - Saves to `email_queue` table with `workflow_run_id`
 - Returns to Loop Companies when all jobs complete
 
-**Send Email v2.2 (5 nodes)** - Email delivery
+**Send Email v2.3 (5 nodes)** - Email delivery
 - Receives `workflow_run_id` and `email` from Main workflow
 - Email address dynamically extracted from profile data
 - Queries `email_queue` for all jobs from this workflow run
@@ -317,10 +357,10 @@ AI Assessment: Perfect match - infrastructure focus...
 📚 **Complete documentation available in repository:**
 
 - **README.md** - You're looking at it!
-- **Main.json** - Main orchestrator v3.2 (5 nodes)
-- **Loop_Companies.json** - Workflow 1 v3.1 (14 nodes)
-- **Loop_Jobs.json** - Workflow 2 v4.1 (8 nodes)
-- **Send_Email.json** - Workflow 3 v2.2 (5 nodes)
+- **Main.json** - Main orchestrator v4.2 (8 nodes, multi-profile support)
+- **Loop_Companies.json** - Workflow 1 v4.1 (14 nodes)
+- **Loop_Jobs.json** - Workflow 2 v4.2 (8 nodes)
+- **Send_Email.json** - Workflow 3 v2.3 (5 nodes)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
@@ -339,10 +379,10 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 1. **Import Workflows**
    ```bash
    # Import all four workflow JSON files into n8n
-   # Main.json (v3.2)
-   # Loop_Companies.json (v3.1)
-   # Loop_Jobs.json (v4.1)
-   # Send_Email.json (v2.2)
+   # Main.json (v4.2)
+   # Loop_Companies.json (v4.1)
+   # Loop_Jobs.json (v4.2)
+   # Send_Email.json (v2.3)
    ```
 
 2. **Configure Credentials**
@@ -400,20 +440,21 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 6. **Update Configuration**
    - Recipient email is automatically sourced from candidate_profile table
-   - Verify profile_id filter in Main v3.2 (defaults to 'default')
-   - Adjust scoring criteria in Loop Jobs v4.1 prompt if needed
+   - Main v4.2 automatically processes all profiles (no filter needed)
+   - To limit to specific profiles, add filter in Load Profiles node
+   - Adjust scoring criteria in Loop Jobs v4.2 prompt if needed
 
 7. **Test Execution**
    ```bash
    # Test with 3 companies first
-   # 1. Run Main v3.2 manually
+   # 1. Run Main v4.2 manually
    # 2. Verify jobs in database
    # 3. Check email received
    # 4. Review formatting
    ```
 
 8. **Schedule Daily Run**
-   - Add cron trigger to Main v3.2: `0 6 * * *` (6 AM daily)
+   - Add cron trigger to Main v4.2: `0 6 * * *` (6 AM daily)
    - Monitor first week for issues
    - Review cost and performance
 
@@ -487,22 +528,22 @@ WHERE profile_id = 'default';
 ```
 
 ### Supporting Multiple Users
-Add multiple profiles to `candidate_profile` table (each with unique email), modify Main v3.2 to select different profile_id.
+Add multiple profiles to `candidate_profile` table (each with unique email). Main v4.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
 
 ### Customizing AI Criteria
-Update scoring criteria in Loop Jobs v4.1 AI prompt or modify `target_criteria` in database.
+Update scoring criteria in Loop Jobs v4.2 AI prompt or modify `target_criteria` in database.
 
 ### Different Email Formats
-Modify HTML template in Send Email v2.2 Build Email node - test with pin data.
+Modify HTML template in Send Email v2.3 Build Email node - test with pin data.
 
 ### Multiple Recipients
-Add multiple profiles to candidate_profile table or modify Send Email v2.2 to send to multiple addresses.
+Add multiple profiles to candidate_profile table (Main v4.2 automatically processes all). Each profile receives their own personalized digest.
 
 ### Alternative Delivery
 Replace SMTP node with Slack, Discord, or database save.
 
 ### Weekly Digests
-Change cron schedule in Main v3.2 and modify email query to include last 7 days.
+Change cron schedule in Main v4.2 and modify email query to include last 7 days.
 
 ---
 
@@ -525,21 +566,21 @@ Change cron schedule in Main v3.2 and modify email query to include last 7 days.
 ## Project Status
 
 **Current State:**
-- ✅ Production-ready four-workflow architecture with orchestrator
-- ✅ Profile externalization (multi-user ready)
+- ✅ Production-ready four-workflow architecture with orchestrator (Main v4.2)
+- ✅ Multi-profile support (process multiple users in single run)
+- ✅ Profile externalization (clean workflow files, no PII in JSON)
 - ✅ Comprehensive documentation (116KB)
 - ✅ Fault-tolerant design with error handling
 - ✅ Cost-efficient ($1.84/day)
 - ✅ Complete traceability and monitoring
-- ✅ Clean workflow files (no PII in JSON)
 
 **Future Enhancements:**
 - [ ] Web dashboard for historical analysis
 - [ ] Mobile notifications for excellent matches
 - [ ] ML-powered company prioritization
-- [ ] Multi-user support with personalized profiles
 - [ ] Integration with ATS APIs directly (bypass Apify)
 - [ ] Real-time job alerts (webhook-based)
+- [ ] Per-profile scheduling (different run times for each user)
 
 ---
 
@@ -563,7 +604,7 @@ This project is open source and contributions are welcome. The architecture is d
 **How to adapt RoleFinder for your own use:**
 1. Fork the repository
 2. Update the `candidate_profile` table with your resume and criteria
-3. Modify scoring criteria in Loop Jobs v4.1 to match your targets
+3. Modify scoring criteria in Loop Jobs v4.2 to match your targets
 4. Populate `companies` table with your target list
 5. Configure your own API credentials (Apify, Anthropic, SMTP)
 

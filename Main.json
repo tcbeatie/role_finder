@@ -15,31 +15,10 @@
     },
     {
       "parameters": {
-        "operation": "get",
-        "dataTableId": {
-          "__rl": true,
-          "value": "f0u316TkzKemNl5l",
-          "mode": "list",
-          "cachedResultName": "candidate_profiles",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/f0u316TkzKemNl5l"
-        }
-      },
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1.1,
-      "position": [
-        32,
-        -16
-      ],
-      "id": "8a21ba7b-6318-426f-b3a2-981a2ab46156",
-      "name": "Load Profile",
-      "notes": "═════════════════════════\n  NODE 2: LOAD PROFILE DATA  ═════════════════════════ Loads candidate profile from database for AI\n evaluation\n\n  Purpose:\n  - Retrieves resume, experience, and target job criteria\n  - Loaded ONCE at workflow start (not\n  repeatedly in child workflows)\n  - This profile data flows through entire\n  pipeline automatically\n\n  Database table: profile_data\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) -\n  \"default\", \"profile_1\", etc.\n  - profile_name: string - [name]\n  - resume_text: text - Complete\n  resume/experience summary\n  - target_criteria: text - Job search criteria\n  and preferences\n\n  Query filter:\n  - profile_id = \"default\" → Loads the\n  default/primary profile\n  - To use different profile: Change \"default\"\n  to \"profile_1\", etc.\n  - Future: Could make this dynamic based on\n  user selection\n\n  Data flow:\n  1. This node loads profile → passes to Loop\n  Companies\n  2. Loop Companies adds to each job as\n  _context_profile_data\n  3. Loop Jobs receives jobs with embedded profile\n  4. AI evaluation uses profile to score job fit\n\n  Output: Single item with complete profile data"
-    },
-    {
-      "parameters": {
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 6
+              "triggerAtHour": 7
             }
           ]
         }
@@ -51,8 +30,7 @@
         -16
       ],
       "id": "6cbddf0d-75c2-46b3-a82b-b5ccb9d29589",
-      "name": "Run Daily",
-      "disabled": true
+      "name": "Run Daily"
     },
     {
       "parameters": {
@@ -117,10 +95,10 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "Ef1Wzl9t8CzLwhRP",
+          "value": "36kuL3QWJ2rK3D5k",
           "mode": "list",
-          "cachedResultName": "Companies test v4",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/Ef1Wzl9t8CzLwhRP"
+          "cachedResultName": "Companies v4",
+          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/36kuL3QWJ2rK3D5k"
         },
         "filters": {
           "conditions": [
@@ -138,7 +116,8 @@
         -160
       ],
       "id": "091b03d9-6d4c-44f3-8363-13d46e9556e8",
-      "name": "Load Companies"
+      "name": "Load Companies",
+      "notes": "=═════════════════════════\n  NODE: LOAD COMPANIES\n═════════════════════════\n  Retrieves target companies filtered by profile\n\n  Purpose:\n  - Loads companies from database for current profile\n  - Filters companies by profile_id (multi-user support)\n  - Each profile can monitor different company sets\n  - Enables personalized company tracking per user\n\n  Database table: Companies test v4\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) - \"default\"\n  - company_id: string (PRIMARY KEY) - \"anthropic\"\n  - company_name: string - \"Anthropic\"\n  - domain: string - \"anthropic.com\"\n\n  Note: Composite primary key (profile_id,company_id)\n  allows same company to be monitored by multiple\n  profiles with different configurations\n\n  Query filter:\n  - profile_id = {{ $json.profile_id }}\n  - Gets profile_id from Load Profile node output\n  - Only returns companies assigned to this profile\n  - Example: profile \"default\" sees only their companies\n\n  Multi-profile architecture:\n  - Profile 1 monitors: {Anthropic, OpenAI, Google}\n  - Profile 2 monitors: {Meta, Apple, Microsoft}\n  - Each user gets personalized company list\n  - Same workflow handles all profiles\n\n  Data flow:\n  1. Receives profile_id from Loop Over Items\n  2. Queries database for matching companies\n  3. Returns array of companies (e.g., 40 companies)\n  4. Flows to Merge Profile+Companies (input 1)\n  5. Merged data goes to Loop Companies sub-workflow\n\n  Output: Array of company objects, one per row\n  Example for 3 companies:\n  [\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\",\n      domain: \"openai.com\" },\n    ...\n  ]\n\n  Next node: Merge Profile+Companies (input 1)"
     },
     {
       "parameters": {},
@@ -149,7 +128,8 @@
         -16
       ],
       "id": "e696ef73-182c-492a-97ec-84ccdb3b32b1",
-      "name": "Merge Profile+Done"
+      "name": "Merge Profile+Done",
+      "notes": "=═════════════════════════\n  NODE: MERGE PROFILE+DONE\n═════════════════════════\n  Concatenates profile and completion data into\n  2-item array for email workflow\n\n  Purpose:\n  - Combines profile with Loop Companies completion\n    signal\n  - Ensures Send Email workflow has profile context\n  - Provides user information (name, email) for\n    delivery\n  - Links workflow execution to specific user\n\n  Merge strategy:\n  - Input 1: Profile data from Loop Over Items\n    (user email/name)\n  - Input 0: Completion data from Loop Companies\n    (workflow_run_id, stats)\n  - Output: 2-item array [completion, profile]\n  - Uses n8n's default merge mode (append items)\n\n  Why concatenate here?\n  1. RECIPIENT INFO: Send Email needs profile.email\n     for delivery\n  2. PERSONALIZATION: Email includes profile.\n     full_name\n  3. TRACKING: Links workflow_run_id to specific\n     user\n  4. ORDERED ARRAY: Predictable structure for\n     sub-workflow\n\n  Example output structure:\n  [\n    {\n      // Item 0: Workflow summary\n      workflow_run_id: 67890,\n      companies_processed: 40,\n      jobs_found: 120\n    },\n    {\n      // Item 1: User configuration\n      profile_id: \"default\",\n      full_name: \"Jane Doe\",\n      email: \"jdoe@example.com\",\n      resume_text: \"...\",\n      target_criteria: \"{...}\"\n    }\n  ]\n\n  Critical for email delivery:\n  Send Email node accesses:\n  - Item [0]: workflow_run_id for email_queue query\n  - Item [1]: full_name and email for delivery\n  - Pattern: {{ $('Start').all()[1].json.email }}\n\n  Data flow:\n  - Receives profile from Loop Over Items (input 1)\n  - Receives completion from Loop Companies (input 0)\n  - Concatenates into 2-item array\n  - Passes to Send Email sub-workflow\n  - Send Email queries email_queue by\n    workflow_run_id\n  - Delivers to profile.email address\n\n  Next node: Call 'Send Email v2.3'"
     },
     {
       "parameters": {},
@@ -160,7 +140,29 @@
         -336
       ],
       "id": "aa522c0a-4c37-47f9-aa68-5c2a6f1a00e5",
-      "name": "Merge Profile+Companies"
+      "name": "Merge Profile+Companies",
+      "notes": "═════════════════════════\n  NODE: MERGE PROFILE+COMPANIES\n═════════════════════════\n  Combines profile and companies into single array\n  for sub-workflow\n\n  Purpose:\n  - Concatenates profile with company array\n  - Creates ordered array for Loop Companies to parse\n  - Profile comes first (item 0), companies follow\n  - Sub-workflow extracts and merges fields internally\n\n  Merge strategy:\n  - Input 0: Profile data from Loop Over Items\n    (single item with profile fields)\n  - Input 1: Companies from Load Companies\n    (array of company objects with profile_id)\n  - Output: Concatenated array [profile, ...companies]\n  - Uses n8n's default merge mode (append items)\n\n  Why concatenate here?\n  1. SINGLE ARRAY: Sub-workflow receives all data\n     in one input\n  2. ORDERED: Profile always at index 0, companies\n     after\n  3. CLEAN HANDOFF: Sub-workflow handles field\n     merging internally\n  4. SIMPLE: No complex merge logic in parent workflow\n\n  Example input/output:\n  Input 0 (profile):\n  { profile_id: \"default\", full_name: \"Jane Doe\",\n    email: \"jdoe@example.com\",\n    resume_text: \"...\", target_criteria: \"{...}\" }\n\n  Input 1 (companies):\n  [\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\", domain: \"openai.com\" }\n  ]\n\n  Output (concatenated array):\n  [\n    // Item 0: Profile\n    { profile_id: \"default\", full_name: \"Jane Doe\",\n      email: \"jdoe@example.com\",\n      resume_text: \"...\", target_criteria: \"{...}\" },\n\n    // Item 1: Company 1\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n\n    // Item 2: Company 2\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\", domain: \"openai.com\" }\n  ]\n\n  Data flow:\n  - Receives profile from Loop Over Items (input 0)\n  - Receives companies from Load Companies (input 1)\n  - Concatenates using n8n default merge (appends items)\n  - Passes array to Loop Companies sub-workflow\n  - Loop Companies \"Merge Data\" node extracts:\n    - allItems[0] = profile\n    - allItems.slice(1) = companies\n    - Then merges profile fields into each company\n\n  Next node: Call 'Loop Companies v4.1'"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "f0u316TkzKemNl5l",
+          "mode": "list",
+          "cachedResultName": "candidate_profiles",
+          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/f0u316TkzKemNl5l"
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        -16
+      ],
+      "id": "8a21ba7b-6318-426f-b3a2-981a2ab46156",
+      "name": "Load Profiles",
+      "notes": "═════════════════════════\n  NODE 2: LOAD PROFILE DATA\n═════════════════════════\n  Loads candidate profiles from database for\n  multi-user support\n\n  Purpose:\n  - Retrieves ALL profiles from database\n  - Loaded ONCE at workflow start\n  - Enables multi-profile/multi-user processing\n  - Each profile gets personalized job search\n\n  Database table: candidate_profiles\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) - Unique identifier\n  - full_name: string - User's display name\n  - email: string - Delivery address\n  - resume_text: text - Complete resume for AI\n    evaluation\n  - target_criteria: text/JSON - Job search criteria\n  - notes: text - Additional profile notes (optional)\n\n  Query behavior:\n  - NO FILTER applied (gets all profiles)\n  - Each profile processed sequentially by\n    Loop Over Items\n\n  Multi-user architecture:\n  1. This node loads ALL profiles at once\n  2. Loop Over Items processes one at a time\n  3. Each profile gets:\n     - Personalized company list (filtered by\n       profile_id)\n     - AI evaluation using their resume_text\n     - Email delivered to their email address\n  4. Single workflow run serves multiple users\n\n  Data flow:\n  1. Load profile(s) → Loop Over Items\n  2. Loop Over Items splits into iterations\n  3. Each iteration:\n     - Load Companies filters by profile_id\n     - Merge nodes attach profile context\n     - Loop Companies receives profile+company data\n     - Loop Jobs uses resume_text for AI evaluation\n     - Send Email delivers to profile's email\n\n  Output: Array of profile objects (1 or more)\n  Example:\n  {\n    profile_id: \"jane_doe_pm\",\n    full_name: \"Jane Doe\",\n    email: \"jdoe@example.com\",\n    resume_text: \"Senior Product Manager...\",\n    target_criteria: \"{\\\"titleSearch\\\": [...]}\",\n    notes: \"Focus on AI roles\"\n  }\n\n  To add a new user:\n  1. Add row to candidate_profiles table\n  2. Add companies to companies table with new\n     profile_id\n  3. Run workflow - new user automatically processed\n  4. No workflow modifications needed\n\n  Next node: Loop Over Items"
     },
     {
       "parameters": {
@@ -173,7 +175,8 @@
         -16
       ],
       "id": "c24db9eb-f205-4178-9019-e63bcd8cb6a5",
-      "name": "Loop Over Items"
+      "name": "Loop Over Profiles",
+      "notes": "═════════════════════════\n  NODE: LOOP OVER ITEMS\n═════════════════════════\n  Iterates through profiles one at a time for\n  multi-user support\n\n  Purpose:\n  - Processes each profile sequentially\n  - Enables future multi-user/multi-profile support\n\n  How it works:\n  - Receives profile data from Load Profile node\n  - Splits into batches (batch size: 1 = one\n    profile at a time)\n  - Each iteration processes complete pipeline\n    for one profile\n  - Loop advances after email sent for current profile\n\n  Two outputs (pins):\n  1. DONE BRANCH (output 0, top pin):\n     - Fires ONCE after ALL profiles complete\n     - Currently goes nowhere (end of workflow)\n     - Future: Could trigger admin notification\n\n  2. LOOP BRANCH (output 1, bottom pin):\n     - Fires ONCE PER PROFILE\n     - Routes to three nodes simultaneously:\n       • Load Companies (filter by profile_id)\n       • Merge Profile+Companies (input 0)\n       • Merge Profile+Done (input 1)\n     - This is where the work happens\n\n  Data flow per iteration:\n  Loop branch provides current profile to three nodes:\n  - Load Companies: Uses {{ $json.profile_id }}\n    as filter\n  - Merge Profile+Companies: Provides profile\n    fields for context\n  - Merge Profile+Done: Provides user email/name\n    for delivery\n\n  Architecture significance:\n  - KEY ENABLER for multi-user support\n  - Single workflow serves multiple users\n  - Each user gets personalized:\n    • Company list (via profile_id filter)\n    • AI evaluation (via resume_text)\n    • Email delivery (via email address)\n  - No separate workflow instances needed\n  - Add users by adding profile rows in database\n\n  Next nodes (loop branch):\n  - Load Companies (filter by current profile_id)\n  - Merge Profile+Companies (input 0, profile context)\n  - Merge Profile+Done (input 1, email delivery)\n"
     }
   ],
   "pinData": {},
@@ -182,18 +185,7 @@
       "main": [
         [
           {
-            "node": "Load Profile",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Load Profile": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
+            "node": "Load Profiles",
             "type": "main",
             "index": 0
           }
@@ -204,7 +196,7 @@
       "main": [
         [
           {
-            "node": "Load Profile",
+            "node": "Load Profiles",
             "type": "main",
             "index": 0
           }
@@ -255,7 +247,29 @@
         ]
       ]
     },
-    "Loop Over Items": {
+    "Call 'Send Email v2.3'": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Profiles": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Profiles": {
       "main": [
         [],
         [
@@ -276,25 +290,14 @@
           }
         ]
       ]
-    },
-    "Call 'Send Email v2.3'": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "c9151c09-2491-464f-ac04-184187e4f1b5",
+  "versionId": "119085b3-e0f5-4b37-8e1f-7432280a9921",
   "meta": {
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
   },
