@@ -1,5 +1,5 @@
 {
-  "name": "Loop Companies v4.1",
+  "name": "Loop_Companies_v4-2",
   "nodes": [
     {
       "parameters": {
@@ -8,10 +8,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        208,
-        0
+        0,
+        16
       ],
-      "id": "a123c87f-d869-49ab-92e5-c4dc9bda3c36",
+      "id": "90d9d29f-fa02-4a1b-98e3-a5b3b684a9ae",
       "name": "Start",
       "notes": "═════════════════════════\n  NODE 1: WORKFLOW TRIGGER (START)\n═════════════════════════\n  Workflow Entry Point - Receives profile + companies\n  from Main workflow\n\n  Purpose:\n  - Starts Loop Companies workflow when called from Main\n  - Receives concatenated array from Main.json\n  - No configuration needed in node itself\n  - Passes through all data to Merge Data node\n\n  Input structure from Main workflow:\n  Array with profile first, companies after:\n  [\n    // Item 0: Profile\n    { profile_id: \"default\", full_name: \"Jane Doe\",\n      email: \"jdoe@example.com\",\n      resume_text: \"...\", target_criteria: \"{...}\" },\n\n    // Item 1+: Companies\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\", domain: \"openai.com\" },\n    ...\n  ]\n\n  Architectural context:\n  - Main.json loads profile from database\n  - Main.json loads companies filtered by profile_id\n  - Main.json merges them into ordered array\n  - Main.json calls THIS workflow with array\n  - Merge Data node (next) splits array back apart\n\n  Why this pattern?\n  1. CLEAN HANDOFF: Single array is simpler than multiple inputs\n  2. ORDERED: Profile always at index 0 for reliable extraction\n  3. STATELESS: This workflow doesn't query database, just processes\n  4. TESTABLE: Can test with mock data by calling workflow directly\n\n  Data flow:\n  1. Main merges profile + companies → ordered array\n  2. Main calls this workflow → Start receives array\n  3. Start passes to Merge Data → splits profile from companies\n  4. Merge Data creates company+profile objects → one per company\n  5. Each company processed with full profile context\n\n  Expected profile fields:\n  - profile_id: string - Profile identifier\n  - full_name: string - User's display name\n  - email: string - Email delivery address\n  - resume_text: text - Full resume for AI evaluation\n  - target_criteria: text/JSON - Job search criteria\n  - notes: text - Additional profile notes (optional)\n\n  Expected company fields:\n  - profile_id: string - Links to profile (composite key)\n  - company_id: string - Company identifier\n  - company_name: string - Company display name\n  - domain: string - Website domain for job search\n\n  Next node: Merge Data"
     },
@@ -22,10 +22,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        416,
-        0
+        208,
+        16
       ],
-      "id": "8066053e-a4a7-4d76-a549-39c924f5c7d6",
+      "id": "ca87ec81-3117-4a74-b3d2-e50f8c1dd3d8",
       "name": "Merge Data",
       "notes": "═════════════════════════\n  NODE 3: MERGE COMPANIES WITH PROFILE DATA\n═════════════════════════\n  Purpose: Splits concatenated array and merges profile fields into each company\n  Execution Mode: Run Once for All Items\n\n  ARCHITECTURAL SIGNIFICANCE:\n  This unpacks the Main workflow handoff.\n  Main sends ordered array [profile, ...companies].\n  This node extracts profile and merges into each company object.\n\n  STEP 1: Get all items from Start trigger\n  const allItems = $input.all();\n  // Receives concatenated array from Main workflow\n  // Example: 11 items (1 profile + 10 companies)\n\n  STEP 2: Extract profile (first item, index 0)\n  const profile = allItems[0].json;\n  console.log('Profile ID:', profile.profile_id);\n\n  STEP 3: Extract companies (items 1+)\n  const companies = allItems.slice(1);\n  console.log('Companies count:', companies.length);\n\n  STEP 4: Create merged output\n  return companies.map(item => ({\n    json: {\n      // Company fields\n      company_id: item.json.company_id,\n      company_name: item.json.company_name,\n      domain: item.json.domain,\n\n      // Profile fields\n      profile_id: profile.profile_id,\n      full_name: profile.full_name,\n      email: profile.email,\n      resume_text: profile.resume_text,\n      target_criteria: profile.target_criteria,\n      notes: profile.notes\n    }\n  }));\n\n  OUTPUT: Array of merged objects, one per company\n  Example:\n  { company_id: \"anthropic\", domain: \"anthropic.com\",\n    profile_id: \"default\", full_name: \"Jane Doe\",\n    resume_text: \"...\", target_criteria: \"{...}\" }\n\n  WHY MERGE HERE?\n  1. SINGLE EXTRACTION: Split array once, use everywhere\n  2. CONTEXT PRESERVATION: Every company iteration has full profile\n  3. NO LOOKUPS: Downstream nodes don't reference Start node\n\n  DATA FLOW:\n  1. Build Request → Extracts target_criteria for Apify\n  2. Loop Over Companies → Each iteration gets company + profile\n  3. Add Context → Passes profile to Loop Jobs sub-workflow\n  4. Loop Jobs → Uses resume_text for AI evaluation\n\n  Next node: Build Request"
     },
@@ -36,10 +36,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        624,
-        0
+        416,
+        16
       ],
-      "id": "a511f574-a0dc-49e8-ac0a-1a2009a06654",
+      "id": "07d0becf-55e1-4502-adf1-38ea4e02a4ac",
       "name": "Build Request",
       "notes": "=========================================================================\n     NODE 4: BUILD APIFY REQUEST FROM MERGED DATA\n     Purpose: Transform company+profile data into Apify\n     API request format\n     Execution Mode: Run Once for All Items     =========================================================================\n     STEP 1: Get all merged company+profile items\n     const items = $input.all();\n\n     STEP 2: Transform each item into Apify API request format\n     return items.map(item => {\n       const data = item.json;\n\n       // Parse the target criteria from profile data\n     // target_criteria is stored as JSON string in profile, so we parse it\n       // Expected structure:\n       // {\n       //   titleSearch: [\"product manager\"],\n     //   titleExclusionSearch: [\"product marketing\"],\n       //   ... other criteria ...\n       // }\n     const criteria = JSON.parse(data.target_criteria);\n\n       return {\n         json: {\n           // === APIFY API SEARCH PARAMETERS ===\n           // These fields tell Apify what jobs to find\n\n           domainFilter: [data.domain],\n     // Company website to search (must be array format)\n           // Example: [\"anthropic.com\"]\n\n           limit: 10,\n     // Maximum number of jobs to return per company\n     // Increase for more jobs, decrease for faster/cheaper searches\n\n           timeRange: \"24h\",\n           // How far back to search for jobs\n     // Options: \"1h\", \"24h\", \"7d\", \"30d\", \"3m\", \"6m\"\n           // PRODUCTION: \"7d\" for weekly, or \"24h\" for daily\n           // TESTING: \"6m\" to ensure jobs are found\n\n           titleSearch: criteria.titleSearch,\n     // EXTRACTED FROM PROFILE: Only return jobs with these words in title\n     // Example: [\"product manager\"] from profile\n     target_criteria\n           // Case-insensitive search\n\n     titleExclusionSearch:\n     criteria.titleExclusionSearch,\n     // EXTRACTED FROM PROFILE: Exclude jobs with these words in title\n     // Example: [\"product marketing\"] from profile\n     target_criteria\n     // Helps filter out Product Marketing Manager roles\n\n     aiWorkArrangementFilter: [\"Hybrid\", \"Remote OK\", \"Remote Solely\"],\n     // Only return jobs that are Remote or Hybrid\n           // Filters out on-site only positions\n     // Note: Could be moved to profile target_criteria in future\n\n           // === APIFY FEATURE FLAGS ===\n           includeAi: true,\n     // Enable Apify's AI analysis (extracts salary, experience level, etc.)\n\n           includeLinkedIn: true,\n     // Search LinkedIn jobs in addition to company career pages\n\n           populateAiRemoteLocationDerived: true,\n     // Extract and standardize remote work locations\n\n           descriptionType: \"text\"\n     // Return job descriptions as plain text (alternative: \"html\")\n\n     // NOTE: We do NOT include _context_ fields here\n     // Those are added later by the \"Add Context\" node\n     // This keeps the Apify request clean and focused on search parameters\n         }\n       };\n     });\n\n     WHAT GETS OUTPUT:\n     Array of Apify request objects, one per company\n     Example for 2 companies:\n     [\n     { domainFilter: [\"anthropic.com\"], limit: 10, titleSearch: [\"product manager\"], ... },\n     { domainFilter: [\"openai.com\"], limit: 10, titleSearch: [\"product manager\"], ... }\n     ]\n\n     Next node: Loop Over Companies"
     },
@@ -50,10 +50,10 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        832,
-        0
+        624,
+        16
       ],
-      "id": "8cdfefc0-3306-444f-b566-39c90dedbf9b",
+      "id": "db573d77-11c2-4c3b-9692-5e42b82b1166",
       "name": "Loop Over Companies",
       "notes": "═════════════════════════\n  NODE 5: LOOP OVER COMPANIES (ORCHESTRATOR)\n═════════════════════════\n  Iterates through companies one at a time for\n  fault tolerance and progress tracking\n\n  Purpose:\n  - Takes merged company+profile array\n  - Processes one company per iteration\n  - Each iteration: discover jobs, evaluate, save\n  - Automatically advances to next company\n\n  Why one company at a time?\n  1. FAULT TOLERANCE: If company #5 fails,\n     companies #6-40 still process\n  2. INCREMENTAL SAVES: Results saved after each\n     company\n  3. PROGRESS TRACKING: Monitor real-time progress\n     in n8n UI\n  4. COST CONTROL: Know exact API call counts\n  5. CLEAN SEPARATION: Each company processed as\n     complete unit\n\n  How the loop works:\n  ┌─ Iteration 1: Process Company 1 (Anthropic)\n  │  ├─ Call Apify → Get 8 jobs\n  │  ├─ Save raw jobs to database (fast path)\n  │  ├─ Call Loop Jobs → Process all 8 jobs\n  │     (slow path)\n  │  └─ Return to this loop node\n  │\n  ├─ Iteration 2: Process Company 2 (OpenAI)\n  │  ├─ Call Apify → Get 5 jobs\n  │  ├─ Save raw jobs → Database\n  │  ├─ Call Loop Jobs → Process all 5 jobs\n  │  └─ Return to loop\n  │\n  └─ All companies done → Done branch activates\n\n  Two outputs (pins):\n  1. DONE BRANCH (output 0, top pin):\n     - Fires ONCE after ALL companies complete\n     - Routes to: Workflow Summary\n     - Prepares data for email workflow\n\n  2. LOOP BRANCH (output 1, bottom pin):\n     - Fires ONCE PER COMPANY\n     - Routes to: Run Apify\n     - This is where the work happens\n\n  Accessing current company:\n  $('Loop Over Companies').item.json\n\n  Returns merged company+profile object:\n  {\n    company_id: \"anthropic\",\n    company_name: \"Anthropic\",\n    domain: \"anthropic.com\",\n    profile_id: \"default\",\n    full_name: \"Jane Doe\",\n    email: \"jdoe@example.com\",\n    resume_text: \"...\",\n    target_criteria: \"{...}\",\n    notes: \"...\"\n  }\n\n  Context preservation:\n  Each loop iteration has access to merged\n  company+profile data. Downstream nodes (Add\n  Context, Save Apify data) can reference both\n  company and profile fields without lookups.\n\n  Next nodes:\n  - Loop branch → Run Apify (process current company)\n  - Done branch → Workflow Summary (prepare for\n    email)"
     },
@@ -64,10 +64,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
+        832,
         -96
       ],
-      "id": "7eff7458-30e9-4f34-b599-dd70a5510c9b",
+      "id": "2f41e764-e43d-4ade-81cf-e70a6a641b62",
       "name": "Workflow Summary",
       "notes": "═════════════════════════\n  NODE 15: WORKFLOW SUMMARY\n═════════════════════════\n  Consolidates loop completion into single summary item for tracking\n\n  Purpose:\n  - Receives multiple items from Done branch\n  - Converts to single summary item\n  - Prevents downstream workflows from executing multiple times\n  - Provides execution metadata for tracking\n\n  THE PROBLEM:\n  The Done branch from Loop Over Companies outputs\n  multiple items (one per company processed). If we\n  passed all these items to Send Email workflow, it\n  would execute once per company instead of once\n  per workflow run.\n\n  THE SOLUTION:\n  Consolidate into a SINGLE item with execution summary.\n\n  Implementation:\n  return [{\n    json: {\n      workflow_run_id: $execution.id,\n      jobs_processed: $input.all().length,\n      query_timestamp: new Date().toISOString()\n    }\n  }];\n\n  Output fields:\n  - workflow_run_id: Execution ID for querying email_queue\n  - jobs_processed: Total items processed in Done branch\n  - query_timestamp: When summary was created (ISO8601 format)\n\n  Example output:\n  {\n    workflow_run_id: 67890,\n    jobs_processed: 120,\n    query_timestamp: \"2024-01-15T10:30:45.123Z\"\n  }\n\n  Why jobs_processed instead of companies_processed?\n  The Done branch receives one item per job that\n  flowed through the company loop, not one item per\n  company. So $input.all().length counts total jobs,\n  not companies.\n\n  Data flow to Send Email:\n  Main workflow passes this summary to Send Email workflow:\n  1. Main receives this summary from Loop Companies\n  2. Main calls Send Email with workflow_run_id\n  3. Send Email queries email_queue WHERE workflow_run_id = 67890\n  4. Send Email groups and formats all jobs into single digest\n  5. User receives ONE email per workflow run\n\n  Next: Output flows back to Main workflow"
     },
@@ -82,7 +82,7 @@
           },
           "conditions": [
             {
-              "id": "c8b41d35-a242-47aa-87a5-35d04194569d",
+              "id": "a33fa835-e117-4654-97a5-dab8ea291401",
               "leftValue": "={{ !!($json && ($json.id || $json.title || $json.organization)) }}",
               "rightValue": "",
               "operator": {
@@ -99,12 +99,26 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1248,
-        0
+        1040,
+        16
       ],
-      "id": "a91253e0-9a36-4c35-a8cd-7dccb4290cf5",
+      "id": "dafed4f3-634c-4a19-aaa7-f933e7b61f8c",
       "name": "If",
-      "notes": " ════════════════════════════════════════════════\n     NODE 7: CHECK IF JOBS WERE FOUND     ════════════════════════════════════════════════\n     Determines if Apify returned actual job data or empty results.\n\n     The problem we're solving:\n     - When Apify finds 0 jobs, it might return empty items or no items\n     - We need to distinguish between \"has jobs\" vs \"no jobs\" to route correctly\n\n     Condition explained in detail:\n     {{ !!($json && ($json.id || $json.title || $json.organization)) }}\n\n     Let's break this down:\n\n     1. $json\n     - The current item from Run Apify node\n     - Could be a real job OR an empty item\n\n     2. $json.id || $json.title || $json.organization\n     - Checks if ANY of these fields exist\n     - Real jobs always have at least one of these\n     - Empty items have none\n     - Returns: the field value (truthy) OR undefined (falsy)\n\n     3. !!\n     - Double negation - converts ANY value to boolean (true/false)\n     - Why? Because IF node needs true/false, not a string or undefined\n     - \"1234\" → !!\"1234\" → true\n     - undefined → !!undefined → false\n\n     Examples:\n     - Real job: {id: \"1234\", title: \"Product Manager\", ...} → TRUE\n     - Empty item: {} → FALSE\n     - Missing item: → FALSE\n\n     1. TRUE BRANCH (jobs found):\n     Routes to: Add Context node\n\n     Add Context then splits into TWO PARALLEL paths:\n\n     Path A: Save Apify data → Insert row (ends cleanly)\n     - Saves raw job data to database immediately\n     - Fast path - completes in ~100ms per job\n     - Does NOT loop back or call sub-workflow\n     - Purpose: Backup and searchable job storage\n\n     Path B: Call 'Loop Jobs' sub-workflow → loops back to company loop\n     - Calls separate \"Loop Jobs\" workflow to process each job\n     - That workflow handles: AI evaluation, merge, format, email queue\n     - Slow path - takes 2-5 seconds per job\n     - DOES loop back when ALL jobs for current company complete\n     - Purpose: AI-powered job matching and email preparation\n\n     WHY TWO PATHS?\n     - Path A preserves all data quickly (backup + immediate availability)\n     - Path B does expensive AI processing in separate workflow\n     - Separation prevents workflow complexity and enables independent testing\n\n     2. FALSE BRANCH (no jobs found):\n     → Log no results → Insert bad row → Loop back\n     - Creates error record in database\n     - Allows company loop to continue\n\n     Important behavior:\n     If 8 jobs found, this IF node evaluates 8 TIMES (once per job).\n     Each job flows through Add Context, then splits to both paths.\n\n     Next nodes:\n     - TRUE → Add Context (then splits to Save + Call sub-workflow)\n     - FALSE → Log no results\n"
+      "notes": "= ════════════════════════════════════════════════\n     NODE 7: CHECK IF JOBS WERE FOUND     ════════════════════════════════════════════════\n     Determines if Apify returned actual job data or empty results.\n\n     The problem we're solving:\n     - When Apify finds 0 jobs, it might return empty items or no items\n     - We need to distinguish between \"has jobs\" vs \"no jobs\" to route correctly\n\n     Condition explained in detail:\n     {{ !!($json && ($json.id || $json.title || $json.organization)) }}\n\n     Let's break this down:\n\n     1. $json\n     - The current item from Run Apify node\n     - Could be a real job OR an empty item\n\n     2. $json.id || $json.title || $json.organization\n     - Checks if ANY of these fields exist\n     - Real jobs always have at least one of these\n     - Empty items have none\n     - Returns: the field value (truthy) OR undefined (falsy)\n\n     3. !!\n     - Double negation - converts ANY value to boolean (true/false)\n     - Why? Because IF node needs true/false, not a string or undefined\n     - \"1234\" → !!\"1234\" → true\n     - undefined → !!undefined → false\n\n     Examples:\n     - Real job: {id: \"1234\", title: \"Product Manager\", ...} → TRUE\n     - Empty item: {} → FALSE\n     - Missing item: → FALSE\n\n     1. TRUE BRANCH (jobs found):\n     Routes to: Add Context node\n\n     Add Context then splits into TWO PARALLEL paths:\n\n     Path A: Save Apify data → Insert row (ends cleanly)\n     - Saves raw job data to database immediately\n     - Fast path - completes in ~100ms per job\n     - Does NOT loop back or call sub-workflow\n     - Purpose: Backup and searchable job storage\n\n     Path B: Call 'Loop Jobs' sub-workflow → loops back to company loop\n     - Calls separate \"Loop Jobs\" workflow to process each job\n     - That workflow handles: AI evaluation, merge, format, email queue\n     - Slow path - takes 2-5 seconds per job\n     - DOES loop back when ALL jobs for current company complete\n     - Purpose: AI-powered job matching and email preparation\n\n     WHY TWO PATHS?\n     - Path A preserves all data quickly (backup + immediate availability)\n     - Path B does expensive AI processing in separate workflow\n     - Separation prevents workflow complexity and enables independent testing\n\n     2. FALSE BRANCH (no jobs found):\n     → Log no results → Insert bad row → Loop back\n     - Creates error record in database\n     - Allows company loop to continue\n\n     Important behavior:\n     If 8 jobs found, this IF node evaluates 8 TIMES (once per job).\n     Each job flows through Add Context, then splits to both paths.\n\n     Next nodes:\n     - TRUE → Add Context (then splits to Save + Call sub-workflow)\n     - FALSE → Log no results\n"
+    },
+    {
+      "parameters": {
+        "jsCode": "// =====================================================================\n// NODE: ADD CONTEXT TO JOBS\n// =====================================================================\n\n// STEP 1: Get all jobs returned from Apify\nconst jobs = $input.all().map(item => item.json);\n\n// STEP 2: Get the current iteration's company+profile data from Merge Data node\n// This has the original merged data before Build Request transformed it\nconst currentIteration = $('Merge Data').item.json;\n\n// STEP 3: Attach context to each job\nreturn jobs.map(job => ({\n  json: {\n    // Preserve all original Apify job fields\n    ...job,\n    \n    // Add parent workflow context for tracking across workflow boundary\n    _context_workflow_run_id: $execution.id,\n    \n    // Company context\n    _context_company_id: currentIteration.company_id,\n    _context_company_name: currentIteration.company_name,\n    _context_domain: currentIteration.domain,\n    \n    // Profile context (for AI evaluation in Loop Jobs)\n    _context_profile_id: currentIteration.profile_id,\n    _context_resume_text: currentIteration.resume_text,\n    _context_target_criteria: currentIteration.target_criteria\n  }\n}));\n\n// OUTPUT: Jobs with both company AND profile context fields\n// These flow through to Loop Jobs where AI can use resume_text for evaluation"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "20504829-a039-4f6a-af4e-1c4b55ec76b1",
+      "name": "Add Context - Pass",
+      "notes": "═════════════════════════\n  NODE 8a: ADD CONTEXT TO JOBS (PASS)\n═════════════════════════\n  Enriches Apify jobs with workflow and profile context for AI evaluation\n\n  Purpose:\n  - Adds parent workflow tracking IDs\n  - Attaches company identification\n  - Includes profile data for AI evaluation\n  - Creates self-contained job context bundle\n\n  Implementation:\n  STEP 1: Get all jobs from Apify\n  const jobs = $input.all().map(item => item.json);\n\n  STEP 2: Get current company+profile data\n  const currentIteration = $('Merge Data').item.json;\n\n  STEP 3: Attach context to each job\n  return jobs.map(job => ({\n    json: {\n      ...job,  // Preserve all Apify fields\n\n      // Workflow tracking\n      _context_workflow_run_id: $execution.id,\n\n      // Company context\n      _context_company_id: currentIteration.company_id,\n      _context_company_name:\n        currentIteration.company_name,\n      _context_domain: currentIteration.domain,\n\n      // Profile context for AI evaluation\n      _context_profile_id: currentIteration.profile_id,\n      _context_resume_text:\n        currentIteration.resume_text,\n      _context_target_criteria:\n        currentIteration.target_criteria\n    }\n  }));\n\n  Output example:\n  {\n    id: \"job_12345\",\n    title: \"Senior Product Manager\",\n    ai_salary_minvalue: 200000,\n    _context_workflow_run_id: 67890,\n    _context_company_id: \"anthropic\",\n    _context_profile_id: \"default\",\n    _context_resume_text: \"Senior Technical Product Manager...\",\n    _context_target_criteria: \"{\\\"titleSearch\\\": [...]}\"\n  }\n\n  Why add profile context?\n  1. CROSS-WORKFLOW: Loop Jobs needs profile for AI\n  2. SINGLE BUNDLE: All data in one package\n  3. NO LOOKUPS: Loop Jobs doesn't query database\n  4. CONSISTENCY: Same profile for all jobs\n\n  Data flow - TWO PARALLEL PATHS:\n  Path A: Save Apify data (fast, ~100ms)\n  Path B: Call Loop Jobs (slow, 2-5 sec per job)\n\n  Next nodes (PARALLEL):\n  - Save Apify data (backup to database)\n  - Call 'Loop Jobs v4.2' (AI evaluation)"
     },
     {
       "parameters": {
@@ -113,10 +127,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1872,
+        1712,
         -96
       ],
-      "id": "90231eab-8408-44c6-9601-21fdff46f5f9",
+      "id": "c2bbadd8-1b06-4fe1-83b4-f738897d0f5b",
       "name": "Save Apify data",
       "notes": " ========================================================================\n     NODE 9: SAVE RAW JOB DATA\n     Extracts key fields from Apify jobs for database storage     =========================================================================\n     PURPOSE:\n     This is the \"fast path\" - immediate backup of all job data.\n     Runs in PARALLEL with the AI evaluation sub-workflow.\n     Completes in ~100ms while AI evaluation takes 2-5 seconds per job.\n\n     STEP 1: Get all jobs for current company (with context already added)\n     const currentJobs = $input.all().map(item =>\n     item.json);\n\n     STEP 2: Get current company context from loop\n     We need this to populate company-related fields in the database\n\n     STEP 3: Transform each job into database row format\n     Creates one database row per job with extracted searchable fields\n     return currentJobs.map(job => ({\n       json: {\n         // === COMPANY CONTEXT ===\n     // Links this job back to the company that posted it\n         company_id: job._context_company_id,\n         company_name: job._context_company_name,\n         domain_guess: currentCompany.domain,\n\n         // === JOB IDENTIFIERS ===\n     job_id: job.id || '',  // Apify's unique job ID\n     job_title: job.title || '',  // \"Senior Product Manager\"\n     organization: job.organization || '',  // \"Anthropic\"\n     organization_url: job.organization_url || '',  //  Link to company page\n\n         // === DATES ===\n     date_posted: job.date_posted || null,  // When job was posted\n     date_created: job.date_created || null,  // When Apify first found it\n\n         // === LOCATION ===\n     // Extract first location from locations_raw array\n     // The ?. is \"optional chaining\" - prevents errors if field doesn't exist\n     location_locality:\n     job.locations_raw?.[0]?.address?.addressLocality || '',  // City\n     location_region:\n     job.locations_raw?.[0]?.address?.addressRegion || '',  // State\n     location_country:\n     job.locations_raw?.[0]?.address?.addressCountry || '',  // Country\n     remote_derived: job.remote_derived || false,  // Is it remote?\n\n         // === SALARY (AI-EXTRACTED BY APIFY) ===\n     salary_currency: job.ai_salary_currency || '',  // \"USD\"\n     salary_min: job.ai_salary_minvalue || null,  // 200000\n     salary_max: job.ai_salary_maxvalue || null,  // 250000\n     salary_unit: job.ai_salary_unittext || '',  //  \"YEAR\"\n\n         // === JOB DETAILS ===\n     // Convert array to comma-separated string if needed\n     employment_type:\n     Array.isArray(job.employment_type)\n     ? job.employment_type.join(', ')  // [\"FULL_TIME\"]\n     → \"FULL_TIME\"\n           : '',\n     experience_level: job.ai_experience_level || '', // \"5-10\" years\n     work_arrangement: job.ai_work_arrangement || '', // \"Hybrid\", \"Remote\"\n\n         // === SOURCE/ATS PLATFORM ===\n     source_ats: job.source || '',  // \"greenhouse\", \"lever\", etc.\n     source_domain: job.source_domain || '',  // \"jobs.lever.co\"\n     domain_derived: job.domain_derived || '',  // Company's actual domain\n\n         // === LINKS ===\n     job_url: job.url || '',  // Direct link to apply\n\n         // === FULL JSON BACKUP ===\n     // Store the COMPLETE job object as JSON string\n     // This preserves EVERYTHING including _context_ fields\n     // IMPORTANT: This includes profile data from Add Context node!\n     // The _context_resume_text and other profile fields are preserved here\n         job_data_full: JSON.stringify(job)\n       }\n     }));\n\n     WHAT GETS OUTPUT:\n     One database row per job with extracted fields\n     Example for 8 jobs: 8 separate database rows\n\n     WHY WE DO THIS:\n     1. SEARCHABLE FIELDS: Can query by salary, location, title without parsing JSON\n     2. CSV-FRIENDLY: All fields are simple strings/numbers\n     3. COMPLETE BACKUP: job_data_full preserves everything including _context_ fields\n     4. PERFORMANCE: Don't need to parse JSON for common queries\n     5. IMMEDIATE AVAILABILITY: Jobs visible in database while AI evaluation runs\n     6. PROFILE PRESERVATION: job_data_full includes _context_resume_text and other profile fields\n\n     ARCHITECTURAL NOTE:\n     This is the \"fast path\" that runs PARALLEL to AI evaluation.\n     In v5, this path looped back. In the new architecture:\n     - This path: Saves and ENDS (no loop back)\n     - Other path: Calls sub-workflow which loops back when done\n     This prevents race conditions and simplifies flow control.\n\n     Next node: Insert row (saves to database, then ends)\n"
     },
@@ -287,26 +301,58 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        2080,
+        2000,
         -96
       ],
-      "id": "9bf8ccad-90a1-44b9-b028-f59b9576e983",
+      "id": "502cb67b-8c52-4451-a4fe-b2c93a7dbedb",
       "name": "Insert row",
-      "notes": " ═════════════════════════\n     NODE 10: INSERT RAW JOBS TO DATABASE\n(FAST PATH)    ═════════════════════════\n     Inserts raw job data into the 'jobs' database table.\n\n     What this node does:\n     - Takes formatted job data from Save Apify node\n     - Inserts ONE ROW PER JOB into database\n     - Completes quickly (~100ms per job) while AI\n     evaluation runs in parallel\n\n     Why save raw jobs to database?\n     1. IMMEDIATE BACKUP: Preserves all job data before any processing\n     2. SEARCHABLE: Can query by salary, location,\n     company without AI evaluation\n     3. HISTORICAL RECORD: Track jobs over time, even if AI evaluation fails\n     4. DEBUGGING: Compare raw data vs AI evaluation\n     results\n     5. FAIL-SAFE: If sub-workflow fails, we still have\n     the raw job data\n     6. PROFILE BACKUP: job_data_full includes\n     _context_ profile fields\n\n     Example: If Anthropic has 8 jobs, this node\n     executes 8 times,\n     creating 8 separate database rows.\n\n     Field mapping explanation:\n     ={{ $json.company_id }} means \"read company_id\n     field from input data\"\n\n     Database columns stored:\n     - company_id, company_name, domain_derived:\n     Company identification\n     - job_id, job_title, job_url: Job identifiers and links\n     - locality, region, remote_derived: Location\n     information\n     - salary_min, salary_max: Compensation range\n     - job_data: Complete JSON backup (includes\n     _context_ fields with profile data)\n\n     Parallel execution:\n     This node runs PARALLEL to \"Call 'Loop Jobs'\"\n     sub-workflow.\n     - This path: Fast storage, completes in milliseconds\n     - Other path: AI evaluation, takes 2-5 sec per job\n     - Both paths must complete before company loop\n     advances\n\n     Note about profile data:\n     The job_data column contains the full JSON\n     including _context_resume_text and other profile\n     fields. This means the raw job backup preserves\n     the candidate profile that was used for evaluation\n     context.\n\n     Next: [No connection - path ends here]\n     Workflow waits for parallel \"Call 'Loop Jobs'\"\n     path to complete"
+      "notes": "= ═════════════════════════\n     NODE 10: INSERT RAW JOBS TO DATABASE\n(FAST PATH)    ═════════════════════════\n     Inserts raw job data into the 'jobs' database table.\n\n     What this node does:\n     - Takes formatted job data from Save Apify node\n     - Inserts ONE ROW PER JOB into database\n     - Completes quickly (~100ms per job) while AI\n     evaluation runs in parallel\n\n     Why save raw jobs to database?\n     1. IMMEDIATE BACKUP: Preserves all job data before any processing\n     2. SEARCHABLE: Can query by salary, location,\n     company without AI evaluation\n     3. HISTORICAL RECORD: Track jobs over time, even if AI evaluation fails\n     4. DEBUGGING: Compare raw data vs AI evaluation\n     results\n     5. FAIL-SAFE: If sub-workflow fails, we still have\n     the raw job data\n     6. PROFILE BACKUP: job_data_full includes\n     _context_ profile fields\n\n     Example: If Anthropic has 8 jobs, this node\n     executes 8 times,\n     creating 8 separate database rows.\n\n     Field mapping explanation:\n     ={{ $json.company_id }} means \"read company_id\n     field from input data\"\n\n     Database columns stored:\n     - company_id, company_name, domain_derived:\n     Company identification\n     - job_id, job_title, job_url: Job identifiers and links\n     - locality, region, remote_derived: Location\n     information\n     - salary_min, salary_max: Compensation range\n     - job_data: Complete JSON backup (includes\n     _context_ fields with profile data)\n\n     Parallel execution:\n     This node runs PARALLEL to \"Call 'Loop Jobs'\"\n     sub-workflow.\n     - This path: Fast storage, completes in milliseconds\n     - Other path: AI evaluation, takes 2-5 sec per job\n     - Both paths must complete before company loop\n     advances\n\n     Note about profile data:\n     The job_data column contains the full JSON\n     including _context_resume_text and other profile\n     fields. This means the raw job backup preserves\n     the candidate profile that was used for evaluation\n     context.\n\n     Next: [No connection - path ends here]\n     Workflow waits for parallel \"Call 'Loop Jobs'\"\n     path to complete"
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE 12: LOG ERROR\n// =====================================================================\n\n// What this node does:\n// When Apify API call completely fails (timeout, auth error,\n// network issue), we log the error so we can debug and retry later.\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Get error details from Apify node's error output\n// The Run Apify node passes error information through $json.error\nconst errorInfo = $json.error || { message: 'Unknown error' };\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: currentCompany.company_id,\n    company_name: currentCompany.company_name,\n    domain_guess: currentCompany.domain,\n    \n    status: 'api_error',  // Indicates API call failed completely\n    jobs_found: 0,\n    \n    // No domain verification data\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',\n    \n    // Include error message for debugging\n    note: `Apify API Error: ${errorInfo.message || JSON.stringify(errorInfo)}`,\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// COMMON ERROR TYPES:\n// - Timeout: API took too long to respond (>30 seconds)\n// - Authentication: API key invalid, expired, or missing\n// - Rate limit: Too many requests in short period\n// - Network: Connection issues, DNS problems, firewall\n// - 500 error: Apify server problem\n// - 400 error: Invalid request parameters\n"
+        "jsCode": "// =====================================================================\n// NODE: ADD CONTEXT TO JOBS\n// =====================================================================\n\n// STEP 1: Get all jobs returned from Apify\nconst jobs = $input.all().map(item => item.json);\n\n// STEP 2: Get the current iteration's company+profile data from Merge Data node\n// This has the original merged data before Build Request transformed it\nconst currentIteration = $('Merge Data').item.json;\n\n// STEP 3: Attach context to each job\nreturn jobs.map(job => ({\n  json: {\n    // Preserve all original Apify job fields\n    ...job,\n    \n    // Add parent workflow context for tracking across workflow boundary\n    _context_workflow_run_id: $execution.id,\n    \n    // Company context\n    _context_company_id: currentIteration.company_id,\n    _context_company_name: currentIteration.company_name,\n    _context_domain: currentIteration.domain,\n    \n    // Profile context (for AI evaluation in Loop Jobs)\n    _context_profile_id: currentIteration.profile_id,\n    _context_resume_text: currentIteration.resume_text,\n    _context_target_criteria: currentIteration.target_criteria\n  }\n}));\n\n// OUTPUT: Jobs with both company AND profile context fields\n// These flow through to Loop Jobs where AI can use resume_text for evaluation"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1456,
-        288
+        1248,
+        96
       ],
-      "id": "50e75d06-898d-4d6c-848f-37bc720260ad",
-      "name": "Log Error",
-      "notes": " ========================================================================\n     NODE 13: LOG ERROR\n     Formats Apify API errors for database insertion  =========================================================================\n     What this node does:\n     When Apify API call completely fails (timeout,\n     auth error, network issue),\n     we log the error so we can debug and retry later.\n\n     Get current company from the company loop\n     const currentCompany = $('Loop Over\n     Companies').item.json;\n\n     Get error details from Apify node's error output\n     The Run Apify node passes error information through $json.error\n     const errorInfo = $json.error || { message: 'Unknown error' };\n\n     Create error record for database\n     return [{\n       json: {\n         company_id: currentCompany.company_id,\n         company_name: currentCompany.company_name,\n         domain_guess: currentCompany.domain,\n\n     status: 'api_error',  // Indicates API call failed completely\n         jobs_found: 0,\n\n         // Include error message for debugging\n     note: `Apify API Error: ${errorInfo.message ||\n     JSON.stringify(errorInfo)}`,\n\n         // Timestamp\n         verified_at: new Date().toISOString()\n       }\n     }];\n\n     COMMON ERROR TYPES:\n     - Timeout: API took too long to respond (>30 seconds)\n     - Authentication: API key invalid, expired, or missing\n     - Rate limit: Too many requests in short period\n     - Network: Connection issues, DNS problems, firewall\n     - 500 error: Apify server problem\n     - 400 error: Invalid request parameters (check Build Request node)\n\n     WHAT TO DO WHEN ERRORS OCCUR:\n     1. Check error message in database after workflow completes\n     2. Verify Apify credentials in n8n settings\n     3. Check Apify service status (status.apify.com)\n     4. Review request parameters in Build Request node\n     5. Verify target_criteria JSON is valid in profile\n     6. Re-run workflow for failed companies\n     7. Contact Apify support if persistent issues\n\n     DEBUGGING TIPS:\n     - View full error in n8n execution log\n     - Check Apify dashboard for account status\n     - Verify domain format in companies table\n     - Test with known-good company (e.g. \"anthropic.com\")\n     - Check if profile.target_criteria is valid JSON\n\n     PROFILE CONTEXT:\n     Although we have access to profile fields, we\n     don't include them in the\n     error log. API errors are typically infrastructure\n     issues, not profile issues.\n\n     Next node: Insert bad row (saves to errors table)"
+      "id": "188f8eff-f0bd-4508-9805-41bbdb21ff93",
+      "name": "Add Context - Fail",
+      "notes": "═════════════════════════\n  NODE 8b: ADD CONTEXT TO JOBS (FAIL)\n═════════════════════════\n  Enriches Apify jobs with context when IF node returns false\n\n  Purpose:\n  - Handles jobs that failed validation check\n  - Adds same context fields as Pass node\n  - Identical structure for error logging\n\n  Implementation:\n  Same code as Add Context - Pass node\n  See that node for detailed documentation\n\n  This path typically handles:\n  - Empty job objects from Apify\n  - Malformed job data\n  - Jobs missing required fields\n\n  Next node: Log no results"
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "s3dtSTZSZWFtAVLn5",
+          "mode": "list",
+          "cachedResultName": "Career Site Job Listing API (fantastic-jobs/career-site-job-listing-api)",
+          "cachedResultUrl": "https://console.apify.com/actors/s3dtSTZSZWFtAVLn5/input"
+        },
+        "customBody": "={{ $json }}",
+        "timeout": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        832,
+        96
+      ],
+      "id": "d94bfe72-4e08-4aed-9f45-4e190851dc8e",
+      "name": "Run Apify",
+      "alwaysOutputData": true,
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "hwrvawIhCz4iflM8",
+          "name": "Apify account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": " ═════════════════════════\n     NODE 6: CALL APIFY JOB SEARCH API     ═════════════════════════\n     Calls Apify's Career Site Job Listing API to\n     search for jobs.\n     - Third-party job search service that crawls\n     company career pages\n     - Aggregates jobs from ATS platforms (Greenhouse, Lever, Workday, etc.)\n     - Includes AI-powered extraction of salary,\n     location, experience level\n\n     What this node does:\n     1. Receives ONE company request (from loop)\n     2. Calls Apify API with search parameters from\n     Build Request node\n     3. Returns 0-10 job listings for that company\n\n     Critical settings explained:\n     - alwaysOutputData: true\n     → Ensures node outputs data even if 0 jobs found\n     → Without this, 0 jobs would skip downstream nodes\n\n     - onError: continueErrorOutput\n     → If API fails, route to error branch instead of\n     crashing workflow\n     → Enables fault tolerance\n\n     → Send ALL fields from previous node (Build\n     Request) to API\n     → Includes Apify search parameters (domainFilter,\n     titleSearch, etc.)\n\n     Two outputs (important!):\n     1. SUCCESS BRANCH (top pin):\n     - API call succeeded (even if 0 jobs returned)\n     - Routes to: IF node (check if jobs exist)\n\n     2. ERROR BRANCH (bottom pin):\n     - API call failed (network error, timeout,\n     authentication failure)\n     - Routes to: Log Error node\n\n     Example scenarios:\n     ┌─ Anthropic: Returns 8 jobs → Success branch with 8 items\n     ├─ Fictional company: Returns 0 jobs → Success\n     branch with 0 items\n     └─ API timeout: → Error branch with error object\n\n     Automatic iteration:\n     If Apify returns 8 jobs, n8n AUTOMATICALLY\n     processes each job\n     individually through downstream nodes. No explicit\n     job loop needed here.\n\n     Each job item includes:\n     - Basic info: id, title, organization, url\n     - Location: cities_derived, regions_derived,\n     remote_derived\n     - Salary: ai_salary_minvalue, ai_salary_maxvalue,\n     ai_salary_currency\n     - Details: description_text, ai_experience_level,\n     ai_work_arrangement\n\n     Next nodes:\n     - Success → IF node (check if jobs exist)\n     - Error → Log Error node\n"
     },
     {
       "parameters": {
@@ -315,12 +361,26 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1648,
+        1472,
         96
       ],
-      "id": "e9fea76c-cd41-40b9-9505-dccd067da146",
+      "id": "e152c62f-b6db-4fc6-9ec2-7491510604b4",
       "name": "Log no results",
       "notes": " ========================================================================\n     NODE 12: LOG NO RESULTS\n     Handles successful API calls that returned 0 jobs    =========================================================================\n     What this node does:\n     When Apify successfully calls a company but finds 0 matching jobs,\n     we still want to track this (so we know the company was checked).\n\n     Get current company from the company loop\n     Note: We can access both company and profile\n     fields from the loop context\n     because they were merged in the Merge Data node\n     const currentCompany = $('Loop Over\n     Companies').item.json;\n\n     Create error record for database\n     return [{\n       json: {\n         company_id: currentCompany.company_id,\n         company_name: currentCompany.company_name,\n         domain_guess: currentCompany.domain,\n\n     status: 'no_results',  // Indicates API worked but 0 jobs found\n         jobs_found: 0,\n\n         // Explanation note: 'API succeeded but returned 0 jobs - company not found in Apify or no matching PM roles',\n\n         // Timestamp\n         verified_at: new Date().toISOString()\n       }\n     }];\n\n     WHY THIS MATTERS:\n     - Distinguishes between \"no jobs\" (tracked here) and \"API error\" (Log Error)\n     - Helps identify companies to remove or update in companies table\n     - Tracks coverage (which companies we're monitoring)\n     - Provides audit trail of workflow execution\n\n     Possible reasons for 0 jobs:\n     1. Company not currently hiring PMs\n     2. Company name mismatch (\"OpenAI\" vs \"Open AI\" vs \"OpenAI Inc\")\n     3. Company not in Apify database\n     4. Our filters too restrictive (title, remote, timeRange)\n     5. All PM jobs filled/closed recently\n     6. Target criteria from profile too specific (titleSearch, etc.)\n\n     PROFILE CONTEXT:\n     Although we have access to profile fields via\n     currentCompany.resume_text,\n     we don't include them in the error log. The error\n     tracking is focused on\n     company-level issues, not profile-specific issues.\n\n     Next node: Insert bad row (saves to errors table)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// =====================================================================\n// NODE 12: LOG ERROR\n// =====================================================================\n\n// What this node does:\n// When Apify API call completely fails (timeout, auth error,\n// network issue), we log the error so we can debug and retry later.\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Get error details from Apify node's error output\n// The Run Apify node passes error information through $json.error\nconst errorInfo = $json.error || { message: 'Unknown error' };\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: currentCompany.company_id,\n    company_name: currentCompany.company_name,\n    domain_guess: currentCompany.domain,\n    \n    status: 'api_error',  // Indicates API call failed completely\n    jobs_found: 0,\n    \n    // No domain verification data\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',\n    \n    // Include error message for debugging\n    note: `Apify API Error: ${errorInfo.message || JSON.stringify(errorInfo)}`,\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// COMMON ERROR TYPES:\n// - Timeout: API took too long to respond (>30 seconds)\n// - Authentication: API key invalid, expired, or missing\n// - Rate limit: Too many requests in short period\n// - Network: Connection issues, DNS problems, firewall\n// - 500 error: Apify server problem\n// - 400 error: Invalid request parameters\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        304
+      ],
+      "id": "217029bd-8141-4b01-95ac-a732ebfe7c0b",
+      "name": "Log Error",
+      "notes": " ========================================================================\n     NODE 13: LOG ERROR\n     Formats Apify API errors for database insertion  =========================================================================\n     What this node does:\n     When Apify API call completely fails (timeout,\n     auth error, network issue),\n     we log the error so we can debug and retry later.\n\n     Get current company from the company loop\n     const currentCompany = $('Loop Over\n     Companies').item.json;\n\n     Get error details from Apify node's error output\n     The Run Apify node passes error information through $json.error\n     const errorInfo = $json.error || { message: 'Unknown error' };\n\n     Create error record for database\n     return [{\n       json: {\n         company_id: currentCompany.company_id,\n         company_name: currentCompany.company_name,\n         domain_guess: currentCompany.domain,\n\n     status: 'api_error',  // Indicates API call failed completely\n         jobs_found: 0,\n\n         // Include error message for debugging\n     note: `Apify API Error: ${errorInfo.message ||\n     JSON.stringify(errorInfo)}`,\n\n         // Timestamp\n         verified_at: new Date().toISOString()\n       }\n     }];\n\n     COMMON ERROR TYPES:\n     - Timeout: API took too long to respond (>30 seconds)\n     - Authentication: API key invalid, expired, or missing\n     - Rate limit: Too many requests in short period\n     - Network: Connection issues, DNS problems, firewall\n     - 500 error: Apify server problem\n     - 400 error: Invalid request parameters (check Build Request node)\n\n     WHAT TO DO WHEN ERRORS OCCUR:\n     1. Check error message in database after workflow completes\n     2. Verify Apify credentials in n8n settings\n     3. Check Apify service status (status.apify.com)\n     4. Review request parameters in Build Request node\n     5. Verify target_criteria JSON is valid in profile\n     6. Re-run workflow for failed companies\n     7. Contact Apify support if persistent issues\n\n     DEBUGGING TIPS:\n     - View full error in n8n execution log\n     - Check Apify dashboard for account status\n     - Verify domain format in companies table\n     - Test with known-good company (e.g. \"anthropic.com\")\n     - Check if profile.target_criteria is valid JSON\n\n     PROFILE CONTEXT:\n     Although we have access to profile fields, we\n     don't include them in the\n     error log. API errors are typically infrastructure\n     issues, not profile issues.\n\n     Next node: Insert bad row (saves to errors table)"
     },
     {
       "parameters": {
@@ -336,8 +396,8 @@
           "value": {
             "company_id": "={{ $json.company_id }}",
             "company_name": "={{ $json.company_name }}",
-            "status": "={{ $json.status }}",
             "jobs_found": "={{ $json.jobs_found }}",
+            "status": "={{ $json.status }}",
             "note": "={{ $json.note }}",
             "verified_at": "={{ $json.verified_at }}"
           },
@@ -364,36 +424,6 @@
               "removed": false
             },
             {
-              "id": "domain_guess",
-              "displayName": "domain_guess",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "domain_verified",
-              "displayName": "domain_verified",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "ats_type",
-              "displayName": "ats_type",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
               "id": "jobs_found",
               "displayName": "jobs_found",
               "required": false,
@@ -402,26 +432,6 @@
               "type": "string",
               "readOnly": false,
               "removed": false
-            },
-            {
-              "id": "ats_platforms_seen",
-              "displayName": "ats_platforms_seen",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "domains_seen",
-              "displayName": "domains_seen",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": true
             },
             {
               "id": "status",
@@ -462,80 +472,21 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1872,
-        288
+        1712,
+        304
       ],
-      "id": "5b608490-bf92-49e2-a268-abf7f2686dea",
+      "id": "23792f5e-d8e1-42ca-8697-7c255e230aab",
       "name": "Insert bad row",
       "notes": " ═════════════════════════\n     NODE 14: SAVE ERRORS TO DATABASE     ═════════════════════════\n     Inserts error records (no results + API failures)\n     to 'errors 1' table.\n\n     What this node does:\n     - Saves error/no-result records to database for\n     tracking and debugging\n     - Receives from TWO sources:\n     1. Log no results (status: 'no_results') - API\n     succeeded but 0 jobs\n     2. Log Error (status: 'api_error') - API call\n     failed completely\n\n     Why track errors in database?\n     1. DEBUGGING: Which companies failed and why\n     2. MONITORING: Track API reliability over time\n     3. MAINTENANCE: Identify companies to update or\n     remove from monitoring list\n     4. COVERAGE: Verify all companies were checked\n     during workflow run\n     5. AUDIT TRAIL: Historical record of workflow\n     execution issues\n\n     Status types stored:\n     - 'no_results': API succeeded, but 0 jobs found\n     for company\n     - Possible reasons: Not hiring, name mismatch, not\n     in Apify\n     - Could also be due to target_criteria from\n     profile being too restrictive\n     - 'api_error': API call completely failed\n     - Possible reasons: Timeout, auth error, network\n     issue, rate limit\n     - Could also be due to invalid target_criteria\n     JSON in profile\n\n     All error types go to the SAME table for\n     centralized tracking.\n     This allows queries like: \"Show me all errors from\n     last week\"\n\n     Production monitoring:\n     - Schedule daily query to check error count\n     - Alert if error rate exceeds threshold (e.g., >10%)\n     - Review no_results companies monthly\n     - Update company names or remove inactive\n     companies\n     - Check if target_criteria needs adjustment for\n     profile\n\n     Profile context:\n     Although errors are tracked at company level,\n     remember that the workflow\n     is now profile-aware. If many companies show\n     no_results, consider checking\n     if profile.target_criteria is too restrictive\n     (e.g., titleSearch too specific).\n\n     Next node: Loop Over Companies (loops back for\n     next company)\n"
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE: ADD CONTEXT TO JOBS\n// =====================================================================\n\n// STEP 1: Get all jobs returned from Apify\nconst jobs = $input.all().map(item => item.json);\n\n// STEP 2: Get the current iteration's company+profile data from Merge Data node\n// This has the original merged data before Build Request transformed it\nconst currentIteration = $('Merge Data').item.json;\n\n// STEP 3: Attach context to each job\nreturn jobs.map(job => ({\n  json: {\n    // Preserve all original Apify job fields\n    ...job,\n    \n    // Add parent workflow context for tracking across workflow boundary\n    _context_workflow_run_id: $execution.id,\n    \n    // Company context\n    _context_company_id: currentIteration.company_id,\n    _context_company_name: currentIteration.company_name,\n    _context_domain: currentIteration.domain,\n    \n    // Profile context (for AI evaluation in Loop Jobs)\n    _context_profile_id: currentIteration.profile_id,\n    _context_resume_text: currentIteration.resume_text,\n    _context_target_criteria: currentIteration.target_criteria\n  }\n}));\n\n// OUTPUT: Jobs with both company AND profile context fields\n// These flow through to Loop Jobs where AI can use resume_text for evaluation"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1456,
-        -96
-      ],
-      "id": "3d73968c-7432-412c-911e-fd35e5d78101",
-      "name": "Add Context - Pass",
-      "notes": "═════════════════════════\n  NODE 8a: ADD CONTEXT TO JOBS (PASS)\n═════════════════════════\n  Enriches Apify jobs with workflow and profile context for AI evaluation\n\n  Purpose:\n  - Adds parent workflow tracking IDs\n  - Attaches company identification\n  - Includes profile data for AI evaluation\n  - Creates self-contained job context bundle\n\n  Implementation:\n  STEP 1: Get all jobs from Apify\n  const jobs = $input.all().map(item => item.json);\n\n  STEP 2: Get current company+profile data\n  const currentIteration = $('Merge Data').item.json;\n\n  STEP 3: Attach context to each job\n  return jobs.map(job => ({\n    json: {\n      ...job,  // Preserve all Apify fields\n\n      // Workflow tracking\n      _context_workflow_run_id: $execution.id,\n\n      // Company context\n      _context_company_id: currentIteration.company_id,\n      _context_company_name:\n        currentIteration.company_name,\n      _context_domain: currentIteration.domain,\n\n      // Profile context for AI evaluation\n      _context_profile_id: currentIteration.profile_id,\n      _context_resume_text:\n        currentIteration.resume_text,\n      _context_target_criteria:\n        currentIteration.target_criteria\n    }\n  }));\n\n  Output example:\n  {\n    id: \"job_12345\",\n    title: \"Senior Product Manager\",\n    ai_salary_minvalue: 200000,\n    _context_workflow_run_id: 67890,\n    _context_company_id: \"anthropic\",\n    _context_profile_id: \"default\",\n    _context_resume_text: \"Senior Technical Product Manager...\",\n    _context_target_criteria: \"{\\\"titleSearch\\\": [...]}\"\n  }\n\n  Why add profile context?\n  1. CROSS-WORKFLOW: Loop Jobs needs profile for AI\n  2. SINGLE BUNDLE: All data in one package\n  3. NO LOOKUPS: Loop Jobs doesn't query database\n  4. CONSISTENCY: Same profile for all jobs\n\n  Data flow - TWO PARALLEL PATHS:\n  Path A: Save Apify data (fast, ~100ms)\n  Path B: Call Loop Jobs (slow, 2-5 sec per job)\n\n  Next nodes (PARALLEL):\n  - Save Apify data (backup to database)\n  - Call 'Loop Jobs v4.2' (AI evaluation)"
-    },
-    {
-      "parameters": {
-        "jsCode": "// =====================================================================\n// NODE: ADD CONTEXT TO JOBS\n// =====================================================================\n\n// STEP 1: Get all jobs returned from Apify\nconst jobs = $input.all().map(item => item.json);\n\n// STEP 2: Get the current iteration's company+profile data from Merge Data node\n// This has the original merged data before Build Request transformed it\nconst currentIteration = $('Merge Data').item.json;\n\n// STEP 3: Attach context to each job\nreturn jobs.map(job => ({\n  json: {\n    // Preserve all original Apify job fields\n    ...job,\n    \n    // Add parent workflow context for tracking across workflow boundary\n    _context_workflow_run_id: $execution.id,\n    \n    // Company context\n    _context_company_id: currentIteration.company_id,\n    _context_company_name: currentIteration.company_name,\n    _context_domain: currentIteration.domain,\n    \n    // Profile context (for AI evaluation in Loop Jobs)\n    _context_profile_id: currentIteration.profile_id,\n    _context_resume_text: currentIteration.resume_text,\n    _context_target_criteria: currentIteration.target_criteria\n  }\n}));\n\n// OUTPUT: Jobs with both company AND profile context fields\n// These flow through to Loop Jobs where AI can use resume_text for evaluation"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1456,
-        96
-      ],
-      "id": "befb82c3-d9e6-40c6-b20d-49237887677c",
-      "name": "Add Context - Fail",
-      "notes": "═════════════════════════\n  NODE 8b: ADD CONTEXT TO JOBS (FAIL)\n═════════════════════════\n  Enriches Apify jobs with context when IF node returns false\n\n  Purpose:\n  - Handles jobs that failed validation check\n  - Adds same context fields as Pass node\n  - Identical structure for error logging\n\n  Implementation:\n  Same code as Add Context - Pass node\n  See that node for detailed documentation\n\n  This path typically handles:\n  - Empty job objects from Apify\n  - Malformed job data\n  - Jobs missing required fields\n\n  Next node: Log no results"
-    },
-    {
-      "parameters": {
-        "operation": "Run actor and get dataset",
-        "actorId": {
-          "__rl": true,
-          "value": "s3dtSTZSZWFtAVLn5",
-          "mode": "list",
-          "cachedResultName": "Career Site Job Listing API (fantastic-jobs/career-site-job-listing-api)",
-          "cachedResultUrl": "https://console.apify.com/actors/s3dtSTZSZWFtAVLn5/input"
-        },
-        "customBody": "={{ $json }}",
-        "authentication": "apifyOAuth2Api"
-      },
-      "type": "@apify/n8n-nodes-apify.apify",
-      "typeVersion": 1,
-      "position": [
-        1040,
-        96
-      ],
-      "id": "5fcd1d84-0352-4704-92ca-c6d6e4dfd618",
-      "name": "Run Apify",
-      "alwaysOutputData": true,
-      "credentials": {
-        "apifyOAuth2Api": {
-          "id": "hwrvawIhCz4iflM8",
-          "name": "Apify account"
-        }
-      },
-      "onError": "continueErrorOutput",
-      "notes": " ═════════════════════════\n     NODE 6: CALL APIFY JOB SEARCH API     ═════════════════════════\n     Calls Apify's Career Site Job Listing API to\n     search for jobs.\n     - Third-party job search service that crawls\n     company career pages\n     - Aggregates jobs from ATS platforms (Greenhouse, Lever, Workday, etc.)\n     - Includes AI-powered extraction of salary,\n     location, experience level\n\n     What this node does:\n     1. Receives ONE company request (from loop)\n     2. Calls Apify API with search parameters from\n     Build Request node\n     3. Returns 0-10 job listings for that company\n\n     Critical settings explained:\n     - alwaysOutputData: true\n     → Ensures node outputs data even if 0 jobs found\n     → Without this, 0 jobs would skip downstream nodes\n\n     - onError: continueErrorOutput\n     → If API fails, route to error branch instead of\n     crashing workflow\n     → Enables fault tolerance\n\n     → Send ALL fields from previous node (Build\n     Request) to API\n     → Includes Apify search parameters (domainFilter,\n     titleSearch, etc.)\n\n     Two outputs (important!):\n     1. SUCCESS BRANCH (top pin):\n     - API call succeeded (even if 0 jobs returned)\n     - Routes to: IF node (check if jobs exist)\n\n     2. ERROR BRANCH (bottom pin):\n     - API call failed (network error, timeout,\n     authentication failure)\n     - Routes to: Log Error node\n\n     Example scenarios:\n     ┌─ Anthropic: Returns 8 jobs → Success branch with 8 items\n     ├─ Fictional company: Returns 0 jobs → Success\n     branch with 0 items\n     └─ API timeout: → Error branch with error object\n\n     Automatic iteration:\n     If Apify returns 8 jobs, n8n AUTOMATICALLY\n     processes each job\n     individually through downstream nodes. No explicit\n     job loop needed here.\n\n     Each job item includes:\n     - Basic info: id, title, organization, url\n     - Location: cities_derived, regions_derived,\n     remote_derived\n     - Salary: ai_salary_minvalue, ai_salary_maxvalue,\n     ai_salary_currency\n     - Details: description_text, ai_experience_level,\n     ai_work_arrangement\n\n     Next nodes:\n     - Success → IF node (check if jobs exist)\n     - Error → Log Error node\n"
-    },
-    {
-      "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "XPilAqIFowoHxwLe",
+          "value": "atdK8a_z4626XNxeeG2WT",
           "mode": "list",
-          "cachedResultUrl": "/workflow/XPilAqIFowoHxwLe",
-          "cachedResultName": "Loop Jobs v4.2"
+          "cachedResultUrl": "/workflow/atdK8a_z4626XNxeeG2WT",
+          "cachedResultName": "Loop_Jobs_v4-3"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -550,11 +501,11 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        2256,
-        320
+        2016,
+        304
       ],
-      "id": "3600cbee-b7b3-45c4-9c95-1b712dbbcfc0",
-      "name": "Call 'Loop Jobs v4.2'",
+      "id": "b36b4f8a-3f53-4c0b-b7bc-cdc1070aa3aa",
+      "name": "Call 'Loop_Jobs_v4-3'",
       "notes": " ═════════════════════════\n     NODE 11: CALL SUB-WORKFLOW\n(EXECUTE WORKFLOW)    ═════════════════════════\n     Calls the \"Loop Jobs\" workflow to process\n     each job with AI evaluation.\n\n     What this node does:\n     1. Receives jobs with context from \"Add Context\"\n     node\n     2. Calls \"Loop Jobs v4.1\" workflow\n     3. Passes ALL job data (including _context_\n     fields) to sub-workflow\n     4. Waits for sub-workflow to complete ALL jobs for\n     current company\n     5. Returns to company loop when done\n\n     Sub-workflow (Loop Jobs v4.1) handles:\n     - Individual job iteration (loops through jobs one\n     at a time)\n     - AI evaluation with Claude Sonnet 4.5 using\n     _context_resume_text\n     - Parsing AI response\n     - Merging AI evaluation with raw job data\n     - Formatting HTML job cards\n     - Saving to email queue table\n\n     Why separate workflows?\n     1. SEPARATION OF CONCERNS:\n     - Company workflow: Orchestration and\n     company-level operations\n     - Job workflow: Individual job processing and AI\n     evaluation\n\n     2. INDEPENDENT TESTING:\n     - Test job evaluation without running company loop\n     - Can test company discovery without AI evaluation\n\n     3. EASIER DEBUGGING:\n     - Isolate issues to specific workflow\n     - View execution logs separately\n\n     4. REUSABILITY:\n     - Job workflow could be triggered from other\n     sources\n     - E.g., manual job evaluation, webhook triggers\n\n     5. CLEANER ARCHITECTURE:\n     - No nested loops in single workflow\n     - Clear workflow boundaries and responsibilities\n\n     Data flow across workflow boundary:\n     Parent (this workflow) passes to sub-workflow:\n     - All Apify job fields (id, title, salary,\n     location, description, etc.)\n     - _context_workflow_run_id (parent execution ID\n     for grouping)\n     - _context_company_id (company identifier)\n     - _context_company_name (company display name)\n     - _context_domain (company domain)\n     - _context_profile_id (candidate profile\n     identifier)\n     - _context_resume_text (full resume for AI\n     evaluation)\n     - _context_target_criteria (job search criteria\n     JSON)\n\n     Sub-workflow returns:\n     Nothing explicit - it saves directly to email\n     queue table.\n     The parent workflow continues when sub-workflow execution completes.\n\n     Timing:\n     - If 8 jobs found for Anthropic\n     - This node is called with all 8 jobs\n     - Sub-workflow processes them one-by-one (internal loop)\n     - Takes 2-5 seconds per job = 16-40 seconds total\n     - Returns control after all 8 jobs processed\n\n     Parallel execution:\n     This node runs in PARALLEL with \"Save Apify data\"\n     path:\n     - Save path: Completes in milliseconds\n     - This path: Completes in seconds (AI evaluation)\n     - Company loop waits for BOTH to complete\n\n     - After sub-workflow completes all jobs for\n     current company\n     - Loops back to \"Loop Over Companies\" node\n     - Company loop advances to next company\n"
     }
   ],
@@ -629,71 +580,27 @@
         ]
       ]
     },
+    "Add Context - Pass": {
+      "main": [
+        [
+          {
+            "node": "Call 'Loop_Jobs_v4-3'",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Apify data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Save Apify data": {
       "main": [
         [
           {
             "node": "Insert row",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Error": {
-      "main": [
-        [
-          {
-            "node": "Insert bad row",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log no results": {
-      "main": [
-        [
-          {
-            "node": "Insert bad row",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Insert bad row": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Companies",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Add Context - Pass": {
-      "main": [
-        [
-          {
-            "node": "Save Apify data",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Call 'Loop Jobs v4.2'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Add Context - Fail": {
-      "main": [
-        [
-          {
-            "node": "Log no results",
             "type": "main",
             "index": 0
           }
@@ -718,7 +625,51 @@
         ]
       ]
     },
-    "Call 'Loop Jobs v4.2'": {
+    "Add Context - Fail": {
+      "main": [
+        [
+          {
+            "node": "Log no results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log no results": {
+      "main": [
+        [
+          {
+            "node": "Insert bad row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Insert bad row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert bad row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Loop_Jobs_v4-3'": {
       "main": [
         [
           {
@@ -733,13 +684,14 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
+    "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "65918e02-dcbf-4484-823d-ba312b7f1698",
+  "versionId": "181ecd49-2108-4379-b360-22b2e49fbcbe",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
   },
-  "id": "ByhfhgUrjf9IYkMQ",
+  "id": "gZMbbMqJ_nEAQdblDPec6",
   "tags": []
 }
