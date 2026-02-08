@@ -134,7 +134,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ### Profile Externalization Architecture
 
-**Key Innovation**: Candidate profiles are stored in the `candidate_profile` database table, not hardcoded in workflows. This enables:
+Candidate profiles are stored in the `candidate_profile` database table, not hardcoded in workflows. This enables:
 
 - **Multi-user support**: Multiple users can share the same workflows with different profiles
 - **Clean workflow files**: No personal data (resume, criteria) in workflow JSON files
@@ -151,7 +151,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ### Multi-Profile Architecture (Main v4.2)
 
-**Key Innovation**: Single workflow run can process multiple users sequentially.
+Single workflow run can process multiple users sequentially.
 
 **Architecture**:
 1. **Load Profiles** node retrieves ALL profiles from `candidate_profile` table
@@ -170,13 +170,6 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - **Profile isolation**: Each user's companies and criteria are independent
 - **Personalized digests**: Each email uses that profile's resume and criteria
 - **Simple maintenance**: Update workflows once, all users benefit
-
-**Example**: If you have 3 profiles (Alice, Bob, Carol):
-- Main loads all 3 profiles
-- Iteration 1: Process Alice's companies → Send Alice's email
-- Iteration 2: Process Bob's companies → Send Bob's email
-- Iteration 3: Process Carol's companies → Send Carol's email
-- Total execution time: ~25 minutes (3 profiles × ~8 min each)
 
 ### Workflow Details
 
@@ -240,7 +233,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - **Job Discovery**: Apify Career Site Job Listing API
 - **AI Evaluation**: Anthropic Claude Sonnet 4.5
 - **Email Delivery**: SMTP (standard email protocol)
-- **Data Storage**: n8n Data Tables (or PostgreSQL for production)
+- **Data Storage**: n8n Data Tables, then later Airtable
 - **Deployment**: n8n-hosted, then later Docker-based (n8n + database)
 
 ---
@@ -250,13 +243,13 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 Every job is traceable through the entire pipeline via workflow_run_id:
 
 1. **Discovery**: Loop Companies discovers job
-2. **Context**: Enriched with `_context_workflow_run_id`, `_context_company_id`
+2. **Context**: Enriched with `_context_workflow_run_id`
 3. **Evaluation**: Loop Jobs evaluates with AI, saves to email_queue
 4. **Delivery**: Send Email queries by workflow_run_id, includes in digest
 5. **Tracking**: Email footer shows workflow_run_id for reference
 
 Database tables:
-- `candidate_profile` - User profiles with resume and target criteria (enables multi-user support)
+- `candidate_profile` - User profiles with resume and target criteria
 - `companies` - Target companies to monitor
 - `jobs` - Raw job data with searchable fields
 - `email_queue` - Formatted job cards linked by workflow_run_id
@@ -292,8 +285,8 @@ RoleFinder uses **dynamic, profile-specific AI scoring** powered by the `target_
 ```json
 {
   "apify_filters": {
-    "titleSearch": ["product manager", "technical product manager"],
-    "titleExclusionSearch": ["product marketing", "associate"],
+    "titleSearch": ["product"],
+    "titleExclusionSearch": ["marketing"],
     "timeRange": "7d",
     "locationSearch": ["United States", "Canada", "United Kingdom"],
     "aiWorkArrangementFilter": ["Hybrid", "Remote OK", "Remote Solely"]
@@ -354,8 +347,6 @@ RoleFinder uses **dynamic, profile-specific AI scoring** powered by the `target_
 ✅ **A/B Testing**: Test different dimension weights or descriptions
 ✅ **Version Tracking**: `version` field enables methodology tracking
 ✅ **Future Flexibility**: Can add new scoring models (threshold-based, knockout criteria, etc.)
-
-**Note**: These criteria are fully customizable. Adapt dimensions, weights, and descriptions to match your specific job search requirements and priorities.
 
 ---
 
@@ -435,7 +426,6 @@ AI Assessment: Perfect match - infrastructure focus...
 📚 **Complete documentation available in repository:**
 
 - **README.md** - You're looking at it!
-- **CLAUDE.md** - Comprehensive development guide with architecture details
 - **Main.json** - Main orchestrator v4.2 (8 nodes, multi-profile support)
 - **Loop_Companies.json** - Workflow 1 v5.1 (15 nodes, dynamic Apify filters)
 - **Loop_Jobs.json** - Workflow 2 v5.1 (9 nodes, dynamic AI scoring)
@@ -511,8 +501,8 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
      'Your complete resume/experience text here...',  -- resume_text
      '{
        "apify_filters": {
-         "titleSearch": ["product manager", "technical product manager"],
-         "titleExclusionSearch": ["product marketing", "associate"],
+         "titleSearch": ["product"],
+         "titleExclusionSearch": ["marketing"],
          "timeRange": "7d",
          "locationSearch": ["United States", "Canada", "United Kingdom"],
          "aiWorkArrangementFilter": ["Hybrid", "Remote OK", "Remote Solely"]
@@ -836,4 +826,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: January 24, 2026*
+*Last Updated: February 8, 2026*
