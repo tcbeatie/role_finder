@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE: BUILD APIFY REQUEST\n// =====================================================================\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  \n  // Parse the target criteria from the profile data (now included in each item)\n  const criteria = JSON.parse(data.target_criteria);\n  \n  return {\n    json: {\n      // === APIFY SEARCH PARAMETERS ===\n      domainFilter: [data.domain],\n      limit: 10,\n      timeRange: \"6m\",\n      titleSearch: criteria.apify_filters.titleSearch,\n      titleExclusionSearch: criteria.apify_filters.titleExclusionSearch,\n      locationSearch: [\"United States\", \"Canada\", \"United Kingdom\", \"Ireland\", \"Netherlands\", \"Germany\"],\n      aiWorkArrangementFilter: [\"Hybrid\", \"Remote OK\", \"Remote Solely\"],\n      \n      // Additional Apify features\n      includeAi: true,\n      includeLinkedIn: true,\n      populateAiRemoteLocationDerived: true,\n      descriptionType: \"text\"\n    }\n  };\n});"
+        "jsCode": "// =====================================================================\n// NODE: BUILD APIFY REQUEST\n// =====================================================================\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  \n  // Parse the target criteria from the profile data (now included in each item)\n  const criteria = JSON.parse(data.target_criteria);\n  \n  return {\n    json: {\n      // === APIFY SEARCH PARAMETERS ===\n      domainFilter: [data.domain],\n      limit: 10,\n      timeRange: \"24h\",\n      titleSearch: criteria.apify_filters.titleSearch,\n      titleExclusionSearch: criteria.apify_filters.titleExclusionSearch,\n      locationSearch: [\"United States\", \"Canada\", \"United Kingdom\", \"Ireland\", \"Netherlands\", \"Germany\"],\n      aiWorkArrangementFilter: [\"Hybrid\", \"Remote OK\", \"Remote Solely\"],\n      \n      // Additional Apify features\n      includeAi: true,\n      includeLinkedIn: true,\n      populateAiRemoteLocationDerived: true,\n      descriptionType: \"text\"\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -686,7 +686,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "5a326343-55ed-4f88-860b-72c74ae7156d",
+  "versionId": "a176cafc-2f4f-4119-8d40-b7826b274476",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
