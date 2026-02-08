@@ -75,7 +75,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "RoleFinder Jobs <finder@launchbridge.co>",
+        "fromEmail": "RoleFinder Jobs <noreply@example.com>",
         "toEmail": "={{ $('Start').all()[1].json.full_name + ' <' + $('Start').all()[1].json.email + '>' }}",
         "subject": "={{ $json.subject }}",
         "html": "={{ $json.html_body }}",
