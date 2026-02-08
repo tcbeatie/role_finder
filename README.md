@@ -109,19 +109,19 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └────┬────────────────────────────────────────────────────┬───┘
      │ Passes profile+companies array ↓                   │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 1: Loop Companies v4.1                            │
+│  WORKFLOW 1: Loop Companies v5.1                            │
 │  Purpose: Discover jobs from target companies               │
 │  Input:   Profile+companies array from Main (concatenated)  │
 │  Output:  Raw jobs → database, enriched jobs → Loop Jobs    │
-│  Key:     Splits array, merges profile with each company    │
+│  Key:     Dynamic Apify filters from target_criteria        │
 └────────────────┬────────────────────────────────────────────┘
                  │ Calls for each company ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 2: Loop Jobs v4.2                                 │
+│  WORKFLOW 2: Loop Jobs v5.1                                 │
 │  Purpose: AI evaluation and HTML card generation            │
 │  Input:   Jobs with _context_* fields (incl. profile data)  │
 │  Output:  Formatted job cards → email_queue table           │
-│  Key:     Uses _context_resume_text from parent (no PII)    │
+│  Key:     Dynamic AI scoring from ai_scoring_criteria       │
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
@@ -134,7 +134,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ### Profile Externalization Architecture
 
-**Key Innovation**: Candidate profiles are stored in the `candidate_profile` database table, not hardcoded in workflows. This enables:
+Candidate profiles are stored in the `candidate_profile` database table, not hardcoded in workflows. This enables:
 
 - **Multi-user support**: Multiple users can share the same workflows with different profiles
 - **Clean workflow files**: No personal data (resume, criteria) in workflow JSON files
@@ -151,7 +151,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ### Multi-Profile Architecture (Main v4.2)
 
-**Key Innovation**: Single workflow run can process multiple users sequentially.
+Single workflow run can process multiple users sequentially.
 
 **Architecture**:
 1. **Load Profiles** node retrieves ALL profiles from `candidate_profile` table
@@ -171,13 +171,6 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - **Personalized digests**: Each email uses that profile's resume and criteria
 - **Simple maintenance**: Update workflows once, all users benefit
 
-**Example**: If you have 3 profiles (Alice, Bob, Carol):
-- Main loads all 3 profiles
-- Iteration 1: Process Alice's companies → Send Alice's email
-- Iteration 2: Process Bob's companies → Send Bob's email
-- Iteration 3: Process Carol's companies → Send Carol's email
-- Total execution time: ~25 minutes (3 profiles × ~8 min each)
-
 ### Workflow Details
 
 **Main v4.2 (8 nodes)** - Top-level orchestrator with multi-profile support
@@ -193,26 +186,29 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
   - Calls Send Email v2.3 sub-workflow (passes workflow_run_id and profile)
 - Single workflow run can process multiple users
 
-**Loop Companies v4.1 (14 nodes)** - Job discovery
+**Loop Companies v5.1 (15 nodes)** - Job discovery
 - Receives concatenated profile+companies array from Main workflow
 - Companies are pre-filtered by profile_id in Main's Load Companies node
 - Splits array: extracts profile (index 0) and companies (index 1+)
 - Merges profile fields into each company object
 - Iterates one company at a time (fault tolerance)
 - For each company:
-  - Calls Apify API to discover jobs
+  - Parses `target_criteria.apify_filters` to build API request
+  - Calls Apify API to discover jobs (with dynamic filters)
   - Saves raw job data immediately to `jobs` table (backup path)
   - Enriches jobs with `_context_*` fields including profile data
-  - Calls Loop Jobs v4.2 sub-workflow with enriched job data
+  - Calls Loop Jobs v5.1 sub-workflow with enriched job data
 - Handles API errors and no-results gracefully
 - Returns summary to Main when all companies complete
 
-**Loop Jobs v4.2 (8 nodes)** - AI evaluation
+**Loop Jobs v5.1 (9 nodes)** - AI evaluation with dynamic scoring
 - Receives jobs with `_context_*` fields from Loop Companies
 - Uses `_context_resume_text` from parent (no hardcoded profile)
+- Parses `_context_target_criteria.ai_scoring_criteria` for dynamic prompt construction
 - Iterates one job at a time (AI rate limiting + error isolation)
 - For each job:
-  - Sends job + profile to Claude Sonnet 4.5 for evaluation
+  - Builds AI prompt dynamically from scoring dimensions
+  - Sends job + profile + criteria to Claude Sonnet 4.5 for evaluation
   - Parses structured JSON response (scores, reasoning, recommendation)
   - Merges AI evaluation with complete job data (parallel paths)
   - Generates professional HTML job card
@@ -237,7 +233,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 - **Job Discovery**: Apify Career Site Job Listing API
 - **AI Evaluation**: Anthropic Claude Sonnet 4.5
 - **Email Delivery**: SMTP (standard email protocol)
-- **Data Storage**: n8n Data Tables (or PostgreSQL for production)
+- **Data Storage**: n8n Data Tables, then later Airtable
 - **Deployment**: n8n-hosted, then later Docker-based (n8n + database)
 
 ---
@@ -247,13 +243,13 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 Every job is traceable through the entire pipeline via workflow_run_id:
 
 1. **Discovery**: Loop Companies discovers job
-2. **Context**: Enriched with `_context_workflow_run_id`, `_context_company_id`
+2. **Context**: Enriched with `_context_workflow_run_id`
 3. **Evaluation**: Loop Jobs evaluates with AI, saves to email_queue
 4. **Delivery**: Send Email queries by workflow_run_id, includes in digest
 5. **Tracking**: Email footer shows workflow_run_id for reference
 
 Database tables:
-- `candidate_profile` - User profiles with resume and target criteria (enables multi-user support)
+- `candidate_profile` - User profiles with resume and target criteria
 - `companies` - Target companies to monitor
 - `jobs` - Raw job data with searchable fields
 - `email_queue` - Formatted job cards linked by workflow_run_id
@@ -263,21 +259,94 @@ Database tables:
 
 ## AI Evaluation Criteria
 
-RoleFinder uses AI to score each job across five customizable dimensions. Below is an **example configuration** used for a Senior Technical Product Manager search:
+RoleFinder uses **dynamic, profile-specific AI scoring** powered by the `target_criteria` JSON field in the `candidate_profile` table. The system automatically constructs evaluation prompts from your custom dimensions.
 
-1. **Seniority Match** (Example: Senior/Lead/Principal/Director level, not Junior/Associate)
-2. **Domain Match** (Example: Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems)
-3. **Technical Depth** (Example: Backend systems, integrations, developer tools expertise)
-4. **Location Fit** (Example: Remote, Hybrid NYC Metro, or Hybrid Bay Area)
-5. **Compensation** (Example: $190k+ minimum threshold)
+### Scoring Architecture
 
-**Note**: These criteria are fully customizable in the `candidate_profile` database table. Adapt them to match your specific job search requirements and priorities.
+**Two-Section Configuration:**
 
-Overall recommendation categories:
+1. **Apify Filters** (`apify_filters`): Job discovery parameters
+   - `titleSearch`: Required words in job title (e.g., `["product manager"]`)
+   - `titleExclusionSearch`: Words that disqualify jobs (e.g., `["marketing"]`)
+   - `timeRange`: How far back to search (`"7d"`, `"30d"`, `"6m"`)
+   - `locationSearch`: Geographic filters (e.g., `["United States", "Canada"]`)
+   - `aiWorkArrangementFilter`: Work arrangement types (e.g., `["Remote OK", "Hybrid"]`)
+
+2. **AI Scoring Criteria** (`ai_scoring_criteria`): Dynamic evaluation dimensions
+   - `version`: Schema version for future evolution (currently `"1.0"`)
+   - `scoring_model`: Calculation method (currently `"weighted_average"`)
+   - `dimensions`: Array of scoring dimensions with:
+     - `name`: Dimension identifier (used in AI response)
+     - `description`: Human-readable criteria sent to AI
+     - `weight`: Importance multiplier (all `1.0` for equal weighting)
+
+### Example Configuration (Senior Technical Product Manager)
+
+```json
+{
+  "apify_filters": {
+    "titleSearch": ["product"],
+    "titleExclusionSearch": ["marketing"],
+    "timeRange": "7d",
+    "locationSearch": ["United States", "Canada", "United Kingdom"],
+    "aiWorkArrangementFilter": ["Hybrid", "Remote OK", "Remote Solely"]
+  },
+  "ai_scoring_criteria": {
+    "version": "1.0",
+    "scoring_model": "weighted_average",
+    "dimensions": [
+      {
+        "name": "seniority_match",
+        "description": "Senior/Lead/Principal/Director level roles (not Associate/Junior)",
+        "weight": 1.0
+      },
+      {
+        "name": "domain_match",
+        "description": "Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems",
+        "weight": 1.0
+      },
+      {
+        "name": "technical_depth",
+        "description": "Backend systems, integrations, developer tools expertise required",
+        "weight": 1.0
+      },
+      {
+        "name": "location_fit",
+        "description": "Remote, Hybrid NYC Metro, or Hybrid Bay Area (10=perfect, 0=dealbreaker)",
+        "weight": 1.0
+      },
+      {
+        "name": "compensation",
+        "description": "$190k+ is threshold (10 if well above, 0 if below)",
+        "weight": 1.0
+      }
+    ]
+  }
+}
+```
+
+### How It Works
+
+1. **Loop Companies** workflow parses `apify_filters` to build job discovery API requests
+2. **Loop Jobs** workflow parses `ai_scoring_criteria` to dynamically construct AI evaluation prompts
+3. Claude AI scores each job 1-10 across your custom dimensions
+4. Overall score calculated using `scoring_model` (weighted average of dimension scores)
+5. Recommendation category assigned based on overall score
+
+### Recommendation Categories
+
 - **EXCELLENT_MATCH**: 8-10 score, strong fit across dimensions
 - **GOOD_MATCH**: 6-8 score, solid candidate with minor gaps
 - **CONSIDER**: 4-6 score, worth reviewing despite gaps
 - **POOR_FIT**: 1-4 score, significant mismatches
+
+### Customization Benefits
+
+✅ **Per-User Criteria**: Different users can have completely different scoring dimensions
+✅ **No Workflow Changes**: Update criteria in database without modifying workflows
+✅ **A/B Testing**: Test different dimension weights or descriptions
+✅ **Version Tracking**: `version` field enables methodology tracking
+✅ **Future Flexibility**: Can add new scoring models (threshold-based, knockout criteria, etc.)
 
 ---
 
@@ -358,11 +427,17 @@ AI Assessment: Perfect match - infrastructure focus...
 
 - **README.md** - You're looking at it!
 - **Main.json** - Main orchestrator v4.2 (8 nodes, multi-profile support)
-- **Loop_Companies.json** - Workflow 1 v4.1 (14 nodes)
-- **Loop_Jobs.json** - Workflow 2 v4.2 (8 nodes)
+- **Loop_Companies.json** - Workflow 1 v5.1 (15 nodes, dynamic Apify filters)
+- **Loop_Jobs.json** - Workflow 2 v5.1 (9 nodes, dynamic AI scoring)
 - **Send_Email.json** - Workflow 3 v2.3 (5 nodes)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
+
+**Key Architecture Innovations (v5.1):**
+- **Dynamic Apify Filters**: Job discovery parameters externalized to `target_criteria.apify_filters`
+- **Dynamic AI Scoring**: Evaluation dimensions externalized to `target_criteria.ai_scoring_criteria`
+- **Per-User Customization**: Different users can have completely different filters and scoring criteria
+- **No Workflow Changes**: Update criteria in database without modifying workflows
 
 ---
 
@@ -379,10 +454,10 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 1. **Import Workflows**
    ```bash
    # Import all four workflow JSON files into n8n
-   # Main.json (v4.2)
-   # Loop_Companies.json (v4.1)
-   # Loop_Jobs.json (v4.2)
-   # Send_Email.json (v2.3)
+   # Main.json (v4.2) - Multi-profile orchestrator
+   # Loop_Companies.json (v5.1) - Job discovery with dynamic filters
+   # Loop_Jobs.json (v5.1) - AI evaluation with dynamic scoring
+   # Send_Email.json (v2.3) - Email delivery
    ```
 
 2. **Configure Credentials**
@@ -418,16 +493,41 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 4. **Populate Candidate Profile**
    ```sql
-   -- Add your profile data
+   -- Add your profile data with complete target_criteria
    INSERT INTO candidate_profile VALUES (
      'default',                    -- profile_id
      'Your Name',                  -- full_name
      'your.email@example.com',     -- email (used for digest delivery)
      'Your complete resume/experience text here...',  -- resume_text
-     '{"titleSearch": ["product manager"], "titleExclusionSearch": ["product marketing"]}',  -- target_criteria
+     '{
+       "apify_filters": {
+         "titleSearch": ["product"],
+         "titleExclusionSearch": ["marketing"],
+         "timeRange": "7d",
+         "locationSearch": ["United States", "Canada", "United Kingdom"],
+         "aiWorkArrangementFilter": ["Hybrid", "Remote OK", "Remote Solely"]
+       },
+       "ai_scoring_criteria": {
+         "version": "1.0",
+         "scoring_model": "weighted_average",
+         "dimensions": [
+           { "name": "seniority_match", "description": "Senior/Lead/Principal/Director level roles (not Associate/Junior)", "weight": 1.0 },
+           { "name": "domain_match", "description": "Infrastructure, Platform Engineering, Developer Experience, API platforms, Cloud systems", "weight": 1.0 },
+           { "name": "technical_depth", "description": "Backend systems, integrations, developer tools expertise required", "weight": 1.0 },
+           { "name": "location_fit", "description": "Remote, Hybrid NYC Metro, or Hybrid Bay Area (10=perfect, 0=dealbreaker)", "weight": 1.0 },
+           { "name": "compensation", "description": "$190k+ is threshold (10 if well above, 0 if below)", "weight": 1.0 }
+         ]
+       }
+     }',  -- target_criteria (JSON with job discovery filters and dynamic AI scoring)
      'Optional notes'              -- notes
    );
    ```
+
+   **Note**: The `target_criteria` field contains two sections:
+   - **apify_filters**: Job discovery parameters (what jobs to find)
+   - **ai_scoring_criteria**: Dynamic evaluation dimensions (how to score jobs)
+
+   All scoring dimensions are customizable per profile. The Loop Jobs workflow dynamically constructs the AI prompt from these criteria, enabling per-user customization without workflow changes.
 
 5. **Populate Companies**
    ```sql
@@ -523,15 +623,46 @@ Update the `candidate_profile` table with new resume or criteria - no workflow c
 ```sql
 UPDATE candidate_profile
 SET resume_text = 'Updated resume text...',
-    target_criteria = '{"titleSearch": ["..."], ...}'
+    target_criteria = '{
+      "apify_filters": {
+        "titleSearch": ["updated search terms"],
+        "titleExclusionSearch": ["exclusions"],
+        "timeRange": "7d",
+        "locationSearch": ["your locations"],
+        "aiWorkArrangementFilter": ["Remote OK", "Hybrid"]
+      },
+      "ai_scoring_criteria": {
+        "version": "1.0",
+        "scoring_model": "weighted_average",
+        "dimensions": [
+          { "name": "dimension_1", "description": "Your criteria", "weight": 1.0 }
+        ]
+      }
+    }'
 WHERE profile_id = 'default';
 ```
+Both job discovery filters and AI scoring dimensions are dynamically read from this field.
 
 ### Supporting Multiple Users
 Add multiple profiles to `candidate_profile` table (each with unique email). Main v4.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
 
 ### Customizing AI Criteria
-Update scoring criteria in Loop Jobs v4.2 AI prompt or modify `target_criteria` in database.
+Update the `ai_scoring_criteria` section in `target_criteria` - no workflow changes needed:
+```sql
+UPDATE candidate_profile
+SET target_criteria = '{
+  "apify_filters": { ... },
+  "ai_scoring_criteria": {
+    "version": "1.0",
+    "scoring_model": "weighted_average",
+    "dimensions": [
+      { "name": "custom_dimension", "description": "Your criteria here", "weight": 1.0 }
+    ]
+  }
+}'
+WHERE profile_id = 'default';
+```
+The Loop Jobs workflow automatically uses your custom dimensions in AI evaluation prompts.
 
 ### Different Email Formats
 Modify HTML template in Send Email v2.3 Build Email node - test with pin data.
@@ -695,4 +826,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: January 24, 2026*
+*Last Updated: February 8, 2026*
