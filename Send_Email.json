@@ -110,7 +110,7 @@
           "conditions": [
             {
               "id": "b91d401f-42c2-42eb-95cb-fde8ec1e5414",
-              "leftValue": "={{ json }}",
+              "leftValue": "={{ $json.workflow_run_id }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -197,7 +197,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "f27081c8-f5bd-4f04-bd2f-363fb7a67f88",
+  "versionId": "1066d159-6184-45d5-8119-0346198b53ff",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
