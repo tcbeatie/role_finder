@@ -1,6 +1,25 @@
 # RoleFinder Release Notes
 
-## Latest Release: v0.5.0
+## Latest Release: v0.5.1
+
+**Release Date:** February 9, 2026
+**Status:** Production-Ready
+
+### Overview
+
+Version 0.5.1 adds dual-path execution to Send Email workflow, preventing workflow hangs in multi-profile scenarios.
+
+### Key Changes
+
+#### Send Email v3.2 (8 nodes)
+- ✅ Email queue validation gate (If node) — skips email when no jobs evaluated this run
+- ✅ Dual-path execution: success path + skip path
+- ✅ Structured status responses prevent parent workflow hangs
+- ✅ Dynamic recipient from profile data (Start[1])
+
+---
+
+## Previous Release: v0.5.0
 
 **Release Date:** February 7, 2026
 **Branch:** `35-remove-hard-coded-scoring-criteria`
@@ -40,7 +59,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - Main.json (v4.2) - Production-ready (8 nodes)
 - Loop_Companies.json (v5.1) - Production-ready (15 nodes)
 - Loop_Jobs.json (v5.1) - Production-ready (9 nodes)
-- Send_Email.json (v2.3) - Production-ready (5 nodes)
+- Send_Email.json (v3.2) - Production-ready (8 nodes)
 
 ### Database Schema
 
@@ -87,42 +106,6 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - domain (string)
 ```
 
-### Migration from v0.3.0
-
-**If upgrading from v0.3.0 (pre-externalization):**
-
-1. **Create `candidate_profiles` table** and populate with your profile data (v0.4.1 requirement)
-2. **Update `companies` table** to link companies via `profile_id` foreign key (v0.4.1 requirement)
-3. **Update `target_criteria` to new JSON structure** (v0.5.0 requirement):
-   ```sql
-   UPDATE candidate_profiles
-   SET target_criteria = '{
-     "apify_filters": {
-       "titleSearch": ["your search terms"],
-       "titleExclusionSearch": ["exclusions"]
-     },
-     "ai_scoring_criteria": {
-       "version": "1.0",
-       "scoring_model": "weighted_average",
-       "dimensions": [
-         {"name": "dimension_1", "description": "Your criteria", "weight": 1.0}
-       ]
-     }
-   }'
-   WHERE profile_id = 'your_profile';
-   ```
-4. **Import updated workflows**:
-   - Main.json (v4.2) - Multi-profile orchestrator
-   - Loop_Companies.json (v5.1) - Dynamic Apify filters
-   - Loop_Jobs.json (v5.1) - Dynamic AI scoring
-   - Send_Email.json (v2.3) - Email delivery
-5. **Verify credentials** (Anthropic API, Apify OAuth2, SMTP)
-6. **Test manually** with 2-3 companies before full deployment
-
-**If upgrading from v0.4.1:**
-- Only steps 3 and 4 are required
-- `candidate_profiles` table and company relationships already exist
-
 ### Known Limitations
 
 **Completed in v0.5.0:**
@@ -146,6 +129,23 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 ---
 
 ## Version History
+
+### v0.5.1 (2026-02-09)
+
+**Added:**
+- Email queue result validation (If node) — skips send when queue is empty for this run
+- Success Response and Empty Response nodes for structured status
+- Dual-path execution architecture (prevents workflow hangs)
+
+**Changed:**
+- Send_Email.json: Upgraded from v2.3 to v3.2 (5→8 nodes)
+- Dynamic recipient addressing from Start node item [1]
+- README.md: Documented dual-path status response pattern
+- README.md: Updated Send Email to 8 nodes throughout
+
+**Fixed:**
+- Multi-profile workflow hangs when no jobs found for a profile
+- Loop Over Profiles continuation in Main workflow
 
 ### v0.5.0 (2026-02-07)
 
@@ -172,7 +172,6 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 **Documentation:**
 - Complete target_criteria JSON structure with both sections documented
 - Setup examples updated with full schema
-- Migration guide for v0.3.0 and v0.4.1 users
 
 ### v0.4.1 (2026-02-05)
 

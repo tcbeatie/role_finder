@@ -105,7 +105,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 │              b. Merge Profile+Companies                     │
 │              c. Call Loop Companies v4.1                    │
 │              d. Merge Profile+Done                          │
-│              e. Call Send Email v2.3                        │
+│              e. Call Send Email v3.2                        │
 └────┬────────────────────────────────────────────────────┬───┘
      │ Passes profile+companies array ↓                   │
 ┌─────────────────────────────────────────────────────────────┐
@@ -125,10 +125,10 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email v2.3                                │
+│  WORKFLOW 3: Send Email v3.2                                │
 │  Purpose: Aggregate and deliver email digest                │
 │  Input:   workflow_run_id + email from Main                 │
-│  Output:  Professional HTML email via SMTP                  │
+│  Output:  Professional HTML email via SMTP + status         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -183,7 +183,7 @@ Single workflow run can process multiple users sequentially.
   - Calls Loop Companies v4.1 sub-workflow (passes profile+companies)
   - Waits for all companies to complete processing
   - Merges profile with completion data
-  - Calls Send Email v2.3 sub-workflow (passes workflow_run_id and profile)
+  - Calls Send Email v3.2 sub-workflow (passes workflow_run_id and profile)
 - Single workflow run can process multiple users
 
 **Loop Companies v5.1 (15 nodes)** - Job discovery
@@ -215,15 +215,57 @@ Single workflow run can process multiple users sequentially.
   - Saves to `email_queue` table with `workflow_run_id`
 - Returns to Loop Companies when all jobs complete
 
-**Send Email v2.3 (5 nodes)** - Email delivery
+**Send Email v3.2 (8 nodes)** - Email delivery with status responses
 - Receives `workflow_run_id` and `email` from Main workflow
 - Email address dynamically extracted from profile data
+- **Validates email queue has results before processing (If node)**
+- **Two execution paths for reliability:**
+  - **Success path**: Jobs found in queue → aggregate → email sent → success status
+  - **Skip path**: Empty queue (no jobs evaluated this run) → skip email → skip status
 - Queries `email_queue` for all jobs from this workflow run
 - Aggregates and sorts by AI score (best first)
 - Groups by recommendation category (excellent/good/consider)
 - Generates dynamic subject line based on quality
 - Builds professional HTML email with statistics
 - Sends via SMTP (migrated from Gmail API for improved reliability)
+- **Returns structured status object to parent workflow**
+- **Ensures Main workflow loop continues even with empty results**
+
+### Status Response Pattern (v3.2)
+
+Send Email now implements dual-path execution with consistent status responses, ensuring the Main workflow's Loop Over Profiles never hangs:
+
+**Success Path** (when jobs are found):
+```json
+{
+  "status": "success",
+  "email_sent": true,
+  "total_jobs": 20,
+  "excellent_count": 3,
+  "workflow_run_id": 67890,
+  "timestamp": "2025-02-09T14:30:00.000Z",
+  "message_id": "<abc123@mail.gmail.com>"
+}
+```
+
+**Skip Path** (when email queue is empty for this workflow run):
+```json
+{
+  "status": "skipped",
+  "reason": "no_workflow_run_id",
+  "email_sent": false,
+  "total_jobs": 0,
+  "excellent_count": 0,
+  "workflow_run_id": null,
+  "timestamp": "2025-02-09T14:30:00.000Z"
+}
+```
+
+**Architecture Benefits:**
+- **Loop continuation**: Both paths return output, preventing workflow hangs
+- **Consistent schema**: Parent workflow can safely handle either response
+- **Debugging clarity**: Status field makes execution outcome explicit
+- **Multi-profile support**: Essential for Loop Over Profiles to process multiple users
 
 ---
 
@@ -429,7 +471,7 @@ AI Assessment: Perfect match - infrastructure focus...
 - **Main.json** - Main orchestrator v4.2 (8 nodes, multi-profile support)
 - **Loop_Companies.json** - Workflow 1 v5.1 (15 nodes, dynamic Apify filters)
 - **Loop_Jobs.json** - Workflow 2 v5.1 (9 nodes, dynamic AI scoring)
-- **Send_Email.json** - Workflow 3 v2.3 (5 nodes)
+- **Send_Email.json** - Workflow 3 v3.2 (8 nodes, dual-path status responses)
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
@@ -457,7 +499,7 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    # Main.json (v4.2) - Multi-profile orchestrator
    # Loop_Companies.json (v5.1) - Job discovery with dynamic filters
    # Loop_Jobs.json (v5.1) - AI evaluation with dynamic scoring
-   # Send_Email.json (v2.3) - Email delivery
+   # Send_Email.json (v3.2) - Email delivery with status responses
    ```
 
 2. **Configure Credentials**
@@ -665,7 +707,7 @@ WHERE profile_id = 'default';
 The Loop Jobs workflow automatically uses your custom dimensions in AI evaluation prompts.
 
 ### Different Email Formats
-Modify HTML template in Send Email v2.3 Build Email node - test with pin data.
+Modify HTML template in Send Email v3.2 Build Email node - test with pin data.
 
 ### Multiple Recipients
 Add multiple profiles to candidate_profile table (Main v4.2 automatically processes all). Each profile receives their own personalized digest.
@@ -702,6 +744,7 @@ Change cron schedule in Main v4.2 and modify email query to include last 7 days.
 - ✅ Profile externalization (clean workflow files, no PII in JSON)
 - ✅ Comprehensive documentation (116KB)
 - ✅ Fault-tolerant design with error handling
+- ✅ **Dual-path status responses (Send Email v3.2) prevent workflow hangs**
 - ✅ Cost-efficient ($1.84/day)
 - ✅ Complete traceability and monitoring
 
@@ -826,4 +869,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: February 8, 2026*
+*Last Updated: February 9, 2026*
