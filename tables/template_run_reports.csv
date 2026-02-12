@@ -1,0 +1,2 @@
+﻿main_execution_id,profile_id,full_name,status,email_sent,total_jobs,excellent_count,strong_count,consider_count,poor_count,workflow_run_id,message_id,run_duration_ms,completed_at
+abc123def456,"default","John Doe","success",true,24,3,8,9,4,"xyz789ghi012","<20250210.abc123@mail.example.com>",487320,"2025-02-10T06:08:43.000Z"

@@ -1,5 +1,5 @@
 {
-  "name": "Main_v5-1",
+  "name": "Main_v6-1",
   "nodes": [
     {
       "parameters": {
@@ -15,10 +15,10 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        208,
-        0
+        -864,
+        272
       ],
-      "id": "a3062779-b6a4-4125-87aa-c3ded97a4753",
+      "id": "e4fead55-749f-4957-8868-ab40a8e60899",
       "name": "Load Profiles",
       "notes": "═════════════════════════\n  NODE 2: LOAD PROFILE DATA\n═════════════════════════\n  Loads candidate profiles from database for\n  multi-user support\n\n  Purpose:\n  - Retrieves ALL profiles from database\n  - Loaded ONCE at workflow start\n  - Enables multi-profile/multi-user processing\n  - Each profile gets personalized job search\n\n  Database table: candidate_profiles\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) - Unique identifier\n  - full_name: string - User's display name\n  - email: string - Delivery address\n  - resume_text: text - Complete resume for AI\n    evaluation\n  - target_criteria: text/JSON - Job search criteria\n  - notes: text - Additional profile notes (optional)\n\n  Query behavior:\n  - NO FILTER applied (gets all profiles)\n  - Each profile processed sequentially by\n    Loop Over Items\n\n  Multi-user architecture:\n  1. This node loads ALL profiles at once\n  2. Loop Over Items processes one at a time\n  3. Each profile gets:\n     - Personalized company list (filtered by\n       profile_id)\n     - AI evaluation using their resume_text\n     - Email delivered to their email address\n  4. Single workflow run serves multiple users\n\n  Data flow:\n  1. Load profile(s) → Loop Over Items\n  2. Loop Over Items splits into iterations\n  3. Each iteration:\n     - Load Companies filters by profile_id\n     - Merge nodes attach profile context\n     - Loop Companies receives profile+company data\n     - Loop Jobs uses resume_text for AI evaluation\n     - Send Email delivers to profile's email\n\n  Output: Array of profile objects (1 or more)\n  Example:\n  {\n    profile_id: \"jane_doe_pm\",\n    full_name: \"Jane Doe\",\n    email: \"jdoe@example.com\",\n    resume_text: \"Senior Product Manager...\",\n    target_criteria: \"{\\\"titleSearch\\\": [...]}\",\n    notes: \"Focus on AI roles\"\n  }\n\n  To add a new user:\n  1. Add row to candidate_profiles table\n  2. Add companies to companies table with new\n     profile_id\n  3. Run workflow - new user automatically processed\n  4. No workflow modifications needed\n\n  Next node: Loop Over Items"
     },
@@ -27,10 +27,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        -176
+        -1072,
+        96
       ],
-      "id": "5f49da32-cf0e-4502-878d-5dcfa930484d",
+      "id": "05ec53d9-cf79-44a6-bc0a-d880f9ab9145",
       "name": "Start",
       "notes": "═════════════════════════\n  NODE 1: START (MANUAL TRIGGER)\n═════════════════════════\n  Workflow Entry Point - Top-level orchestrator\n  for entire RoleFinder system\n\n  What it does:\n  - Starts the complete job monitoring pipeline\n  when you click 'Execute workflow'\n  - This is the top-level workflow that\n  orchestrates all sub-workflows\n  - Replaces the old pattern where Loop\n  Companies was the entry point\n\n  -  Profile loaded here (once) and passed down\n  - Enables future multi-profile support (change\n  profile_id filter)\n\n  How to use:\n  - In n8n UI, click the 'Execute workflow' button\n  - Or schedule this workflow to run\n  automatically (cron: 0 6 * * *)\n  - Profile data flows automatically to all\n  child workflows"
     },
@@ -41,10 +41,10 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        416,
-        0
+        -656,
+        272
       ],
-      "id": "0c73b69d-e250-4776-9be9-6725b29a04d3",
+      "id": "a705dff7-73cd-4100-8c5a-965879fd46cd",
       "name": "Loop Over Profiles",
       "notes": "=═════════════════════════\n  NODE: LOOP OVER ITEMS\n═════════════════════════\n  Iterates through profiles one at a time for\n  multi-user support\n\n  Purpose:\n  - Processes each profile sequentially\n  - Enables future multi-user/multi-profile support\n\n  How it works:\n  - Receives profile data from Load Profile node\n  - Splits into batches (batch size: 1 = one\n    profile at a time)\n  - Each iteration processes complete pipeline\n    for one profile\n  - Loop advances after email sent for current profile\n\n  Two outputs (pins):\n  1. DONE BRANCH (output 0, top pin):\n     - Fires ONCE after ALL profiles complete\n     - Currently goes nowhere (end of workflow)\n     - Future: Could trigger admin notification\n\n  2. LOOP BRANCH (output 1, bottom pin):\n     - Fires ONCE PER PROFILE\n     - Routes to three nodes simultaneously:\n       • Load Companies (filter by profile_id)\n       • Merge Profile+Companies (input 0)\n       • Merge Profile+Done (input 1)\n     - This is where the work happens\n\n  Data flow per iteration:\n  Loop branch provides current profile to three nodes:\n  - Load Companies: Uses {{ $json.profile_id }}\n    as filter\n  - Merge Profile+Companies: Provides profile\n    fields for context\n  - Merge Profile+Done: Provides user email/name\n    for delivery\n\n  Architecture significance:\n  - KEY ENABLER for multi-user support\n  - Single workflow serves multiple users\n  - Each user gets personalized:\n    • Company list (via profile_id filter)\n    • AI evaluation (via resume_text)\n    • Email delivery (via email address)\n  - No separate workflow instances needed\n  - Add users by adding profile rows in database\n\n  Next nodes (loop branch):\n  - Load Companies (filter by current profile_id)\n  - Merge Profile+Companies (input 0, profile context)\n  - Merge Profile+Done (input 1, email delivery)\n"
     },
@@ -70,10 +70,10 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        752,
-        -112
+        -144,
+        160
       ],
-      "id": "650d369f-dd54-42c1-93b0-d5b1090a14d8",
+      "id": "a40b85eb-ebe4-4133-a07f-ed8668b771c2",
       "name": "Load Companies",
       "notes": "=═════════════════════════\n  NODE: LOAD COMPANIES\n═════════════════════════\n  Retrieves target companies filtered by profile\n\n  Purpose:\n  - Loads companies from database for current profile\n  - Filters companies by profile_id (multi-user support)\n  - Each profile can monitor different company sets\n  - Enables personalized company tracking per user\n\n  Database table: Companies test v4\n  Expected schema:\n  - profile_id: string (PRIMARY KEY) - \"default\"\n  - company_id: string (PRIMARY KEY) - \"anthropic\"\n  - company_name: string - \"Anthropic\"\n  - domain: string - \"anthropic.com\"\n\n  Note: Composite primary key (profile_id,company_id)\n  allows same company to be monitored by multiple\n  profiles with different configurations\n\n  Query filter:\n  - profile_id = {{ $json.profile_id }}\n  - Gets profile_id from Load Profile node output\n  - Only returns companies assigned to this profile\n  - Example: profile \"default\" sees only their companies\n\n  Multi-profile architecture:\n  - Profile 1 monitors: {Anthropic, OpenAI, Google}\n  - Profile 2 monitors: {Meta, Apple, Microsoft}\n  - Each user gets personalized company list\n  - Same workflow handles all profiles\n\n  Data flow:\n  1. Receives profile_id from Loop Over Items\n  2. Queries database for matching companies\n  3. Returns array of companies (e.g., 40 companies)\n  4. Flows to Merge Profile+Companies (input 1)\n  5. Merged data goes to Loop Companies sub-workflow\n\n  Output: Array of company objects, one per row\n  Example for 3 companies:\n  [\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\",\n      domain: \"openai.com\" },\n    ...\n  ]\n\n  Next node: Merge Profile+Companies (input 1)"
     },
@@ -82,10 +82,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        896,
-        -272
+        0,
+        0
       ],
-      "id": "8702f3c6-5da0-4bab-b855-8621d0e9e5bb",
+      "id": "a93207d5-8878-4b37-8c40-df346ed419c3",
       "name": "Merge Profile+Companies",
       "notes": "═════════════════════════\n  NODE: MERGE PROFILE+COMPANIES\n═════════════════════════\n  Combines profile and companies into single array\n  for sub-workflow\n\n  Purpose:\n  - Concatenates profile with company array\n  - Creates ordered array for Loop Companies to parse\n  - Profile comes first (item 0), companies follow\n  - Sub-workflow extracts and merges fields internally\n\n  Merge strategy:\n  - Input 0: Profile data from Loop Over Items\n    (single item with profile fields)\n  - Input 1: Companies from Load Companies\n    (array of company objects with profile_id)\n  - Output: Concatenated array [profile, ...companies]\n  - Uses n8n's default merge mode (append items)\n\n  Why concatenate here?\n  1. SINGLE ARRAY: Sub-workflow receives all data\n     in one input\n  2. ORDERED: Profile always at index 0, companies\n     after\n  3. CLEAN HANDOFF: Sub-workflow handles field\n     merging internally\n  4. SIMPLE: No complex merge logic in parent workflow\n\n  Example input/output:\n  Input 0 (profile):\n  { profile_id: \"default\", full_name: \"Jane Doe\",\n    email: \"jdoe@example.com\",\n    resume_text: \"...\", target_criteria: \"{...}\" }\n\n  Input 1 (companies):\n  [\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\", domain: \"openai.com\" }\n  ]\n\n  Output (concatenated array):\n  [\n    // Item 0: Profile\n    { profile_id: \"default\", full_name: \"Jane Doe\",\n      email: \"jdoe@example.com\",\n      resume_text: \"...\", target_criteria: \"{...}\" },\n\n    // Item 1: Company 1\n    { profile_id: \"default\", company_id: \"anthropic\",\n      company_name: \"Anthropic\",\n      domain: \"anthropic.com\" },\n\n    // Item 2: Company 2\n    { profile_id: \"default\", company_id: \"openai\",\n      company_name: \"OpenAI\", domain: \"openai.com\" }\n  ]\n\n  Data flow:\n  - Receives profile from Loop Over Items (input 0)\n  - Receives companies from Load Companies (input 1)\n  - Concatenates using n8n default merge (appends items)\n  - Passes array to Loop Companies sub-workflow\n  - Loop Companies \"Merge Data\" node extracts:\n    - allItems[0] = profile\n    - allItems.slice(1) = companies\n    - Then merges profile fields into each company\n\n  Next node: Call 'Loop Companies v4.1'"
     },
@@ -94,48 +94,19 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        1376,
-        0
+        480,
+        272
       ],
-      "id": "88839da0-768a-40e0-8c77-3dfca3d9065f",
+      "id": "5e9384e7-bc2a-4822-bc00-e9de7c22dbae",
       "name": "Merge Profile+Done",
       "notes": "=═════════════════════════\n  NODE: MERGE PROFILE+DONE\n═════════════════════════\n  Concatenates profile and completion data into\n  2-item array for email workflow\n\n  Purpose:\n  - Combines profile with Loop Companies completion\n    signal\n  - Ensures Send Email workflow has profile context\n  - Provides user information (name, email) for\n    delivery\n  - Links workflow execution to specific user\n\n  Merge strategy:\n  - Input 1: Profile data from Loop Over Items\n    (user email/name)\n  - Input 0: Completion data from Loop Companies\n    (workflow_run_id, stats)\n  - Output: 2-item array [completion, profile]\n  - Uses n8n's default merge mode (append items)\n\n  Why concatenate here?\n  1. RECIPIENT INFO: Send Email needs profile.email\n     for delivery\n  2. PERSONALIZATION: Email includes profile.\n     full_name\n  3. TRACKING: Links workflow_run_id to specific\n     user\n  4. ORDERED ARRAY: Predictable structure for\n     sub-workflow\n\n  Example output structure:\n  [\n    {\n      // Item 0: Workflow summary\n      workflow_run_id: 67890,\n      companies_processed: 40,\n      jobs_found: 120\n    },\n    {\n      // Item 1: User configuration\n      profile_id: \"default\",\n      full_name: \"Jane Doe\",\n      email: \"jdoe@example.com\",\n      resume_text: \"...\",\n      target_criteria: \"{...}\"\n    }\n  ]\n\n  Critical for email delivery:\n  Send Email node accesses:\n  - Item [0]: workflow_run_id for email_queue query\n  - Item [1]: full_name and email for delivery\n  - Pattern: {{ $('Start').all()[1].json.email }}\n\n  Data flow:\n  - Receives profile from Loop Over Items (input 1)\n  - Receives completion from Loop Companies (input 0)\n  - Concatenates into 2-item array\n  - Passes to Send Email sub-workflow\n  - Send Email queries email_queue by\n    workflow_run_id\n  - Delivers to profile.email address\n\n  Next node: Call 'Send Email v2.3'"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "F9XFH8EFEqNYstP5",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/F9XFH8EFEqNYstP5",
-          "cachedResultName": "Loop_Companies_v5-1"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        1104,
-        -272
-      ],
-      "id": "ec88f759-d81d-42c5-91f0-969fd6de98ac",
-      "name": "Call 'Loop_Companies_v5-1'",
-      "notes": "═════════════════════════\n  NODE 3: CALL LOOP COMPANIES SUB-WORKFLOW  ═════════════════════════\n  Executes the company discovery and job\n  processing workflow\n\n  Purpose:\n  - Orchestrates company-by-company job discovery\n  - Passes profile data from parent to child workflow\n  - Handles all company iteration and error\n  management\n  - Returns control when all companies complete\n\n  Workflow called: Loop Companies v3.1\n  Input: Profile data from Load Profile node\n  - n8n automatically passes data from previous node\n  - Profile available as $json in child workflow\n\n  What Loop Companies v3.1 does:\n  1. Loads companies from companies table\n  2. Iterates one company at a time (fault tolerance)\n  3. For each company:\n     - Calls Apify API to discover jobs\n     - Enriches jobs with profile data\n  (_context_profile_data)\n     - Saves raw jobs to database (backup)\n     - Calls Loop Jobs sub-workflow with enriched jobs\n  4. Logs errors for failed companies\n  5. Returns summary when all complete\n\n  Execution time:\n  - ~40 companies × ~10 seconds per company = ~7-8 minutes total\n  - Includes: API calls, database saves,\n  sub-workflow calls\n  - May vary based on job counts and API\n  response times\n\n  Waiting behavior:\n  - This node WAITS for Loop Companies to\n  complete entirely\n  - All companies processed before advancing\n  - All jobs evaluated by AI before advancing\n  - This ensures complete data set for email\n  generation\n\n  Error handling:\n  - Loop Companies handles errors internally\n  - Failed companies logged to errors table\n  - Workflow continues even if some companies fail\n  - Main workflow always completes (no crash)\n\n  Return value:\n  Loop Companies returns:\n  {\n    workflow_run_id: 67890,\n    companies_processed: 40,\n    jobs_found: 120,\n    errors: 5,\n    execution_time_ms: 456000\n  }\n\n  This return data flows to Send Email for reference."
     },
     {
       "parameters": {
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 6
+              "triggerAtHour": 7
             }
           ]
         }
@@ -143,20 +114,20 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        0,
-        0
+        -1072,
+        272
       ],
-      "id": "2035909a-fd88-463a-a03c-ef54d4c94648",
+      "id": "1cb35986-4ee7-49f3-b5a4-8539fb35fbe7",
       "name": "Schedule Trigger"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "2kSI2Z7cwRneXttW",
+          "value": "LKVeUWMswVvDabFDRHVyZ",
           "mode": "list",
-          "cachedResultUrl": "/workflow/2kSI2Z7cwRneXttW",
-          "cachedResultName": "Send_Email_v3-1"
+          "cachedResultUrl": "/workflow/LKVeUWMswVvDabFDRHVyZ",
+          "cachedResultName": "Send_Email_v4-1"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -171,12 +142,288 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        1584,
+        688,
+        272
+      ],
+      "id": "99dad99f-12e7-4a39-b9f8-5ae6d167e6c0",
+      "name": "Call 'Send_Email_v4-1'",
+      "notes": "=═════════════════════════\n  NODE 4: CALL SEND EMAIL SUB-WORKFLOW ═════════════════════════\n  Executes the email generation and delivery workflow\n\n  Purpose:\n  - Aggregates all evaluated jobs from\n  email_queue table\n  - Generates professional HTML digest email\n  - Delivers via Gmail API\n  - Completes the daily job monitoring cycle\n\n  Workflow called: Send Email v2.1\n  Input: Summary data from Loop Companies\n  - Receives workflow_run_id for querying email_queue\n  - Profile data NOT needed (already embedded in\n  job cards)\n\n  What Send Email v2.1 does:\n  1. Queries email_queue for all jobs from this\n  workflow run\n  2. Sorts jobs by overall_score (best matches first)\n  3. Groups by recommendation category\n  (excellent/good/consider)\n  4. Generates dynamic email subject line\n  5. Builds HTML email with all formatted job cards\n  6. Sends via Gmail API\n  7. Returns delivery confirmation\n\n  Data sources:\n  Send Email queries email_queue table:\n  - WHERE workflow_run_id = {{\n  $json.workflow_run_id }}\n  - Gets ALL jobs evaluated during this run\n  - Jobs already contain:\n    - Complete job details\n    - AI evaluation scores\n    - Formatted HTML cards\n    - Profile matching results\n\n  Email structure:\n  ┌───────────────────────┐\n  │ 🎯 Your Daily Job Digest          │\n  │ Monday, December 29, 2025          │\n  ├───────────────────────┤\n  │ Summary: 15 Excellent, 45 Strong   │\n  ├───────────────────────┤\n  │ [Job Card 1 - Score 10/10]         │\n  │ [Job Card 2 - Score 9/10]          │\n  │ ...                                │\n  │ [Job Card 120 - Score 3/10]        │\n  ├───────────────────────┤\n  │ Footer: Workflow Run ID #67890     │\n  └───────────────────────┘\n\n  Execution time:\n  - Query: ~1 second (120 rows)\n  - Email generation: ~1 second\n  - Gmail API: ~1 second\n  - Total: ~3 seconds\n\n  Delivery:\n  - Recipient: [configured in Send Email workflow]\n  - Method: Gmail API (OAuth2 authenticated)\n  - Appears in: Gmail Inbox + Sent folder\n  - Deliverability: >99% (verified sender,\n  proper authentication)\n\n  Error handling:\n  - Gmail API failures logged in Send Email execution\n  - Retry logic: 3 attempts with exponential backoff\n  - If all attempts fail: Email saved to\n  database for manual retry\n  - User notified via separate error\n  notification (if configured)\n\n  Return value:\n  Send Email returns:\n  {\n    status: \"success\",\n    email_sent: true,\n    recipient: \"[email address]\",\n    jobs_included: 120,\n    message_id: \"<abc123@mail.gmail.com>\",\n    delivered_at: \"2025-12-29T06:08:15Z\"\n  }\n\n  Workflow completion:\n  After this node executes:\n  - Main workflow completes\n  - User receives daily digest email\n  - Database contains:\n    - jobs table: Raw job data\n    - email_queue table: Formatted job cards\n    - errors table: Any failed companies\n  - Ready for tomorrow's scheduled run\n"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Rk3HbJMm_Vg_0L0o2CIHC",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Rk3HbJMm_Vg_0L0o2CIHC",
+          "cachedResultName": "Loop_Companies_v5-2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        208,
         0
       ],
-      "id": "cbbda571-0586-40af-b09d-6527066f5ee4",
-      "name": "Call 'Send_Email_v3-1'",
-      "notes": "=═════════════════════════\n  NODE 4: CALL SEND EMAIL SUB-WORKFLOW ═════════════════════════\n  Executes the email generation and delivery workflow\n\n  Purpose:\n  - Aggregates all evaluated jobs from\n  email_queue table\n  - Generates professional HTML digest email\n  - Delivers via Gmail API\n  - Completes the daily job monitoring cycle\n\n  Workflow called: Send Email v2.1\n  Input: Summary data from Loop Companies\n  - Receives workflow_run_id for querying email_queue\n  - Profile data NOT needed (already embedded in\n  job cards)\n\n  What Send Email v2.1 does:\n  1. Queries email_queue for all jobs from this\n  workflow run\n  2. Sorts jobs by overall_score (best matches first)\n  3. Groups by recommendation category\n  (excellent/good/consider)\n  4. Generates dynamic email subject line\n  5. Builds HTML email with all formatted job cards\n  6. Sends via Gmail API\n  7. Returns delivery confirmation\n\n  Data sources:\n  Send Email queries email_queue table:\n  - WHERE workflow_run_id = {{\n  $json.workflow_run_id }}\n  - Gets ALL jobs evaluated during this run\n  - Jobs already contain:\n    - Complete job details\n    - AI evaluation scores\n    - Formatted HTML cards\n    - Profile matching results\n\n  Email structure:\n  ┌───────────────────────┐\n  │ 🎯 Your Daily Job Digest          │\n  │ Monday, December 29, 2025          │\n  ├───────────────────────┤\n  │ Summary: 15 Excellent, 45 Strong   │\n  ├───────────────────────┤\n  │ [Job Card 1 - Score 10/10]         │\n  │ [Job Card 2 - Score 9/10]          │\n  │ ...                                │\n  │ [Job Card 120 - Score 3/10]        │\n  ├───────────────────────┤\n  │ Footer: Workflow Run ID #67890     │\n  └───────────────────────┘\n\n  Execution time:\n  - Query: ~1 second (120 rows)\n  - Email generation: ~1 second\n  - Gmail API: ~1 second\n  - Total: ~3 seconds\n\n  Delivery:\n  - Recipient: [configured in Send Email workflow]\n  - Method: Gmail API (OAuth2 authenticated)\n  - Appears in: Gmail Inbox + Sent folder\n  - Deliverability: >99% (verified sender,\n  proper authentication)\n\n  Error handling:\n  - Gmail API failures logged in Send Email execution\n  - Retry logic: 3 attempts with exponential backoff\n  - If all attempts fail: Email saved to\n  database for manual retry\n  - User notified via separate error\n  notification (if configured)\n\n  Return value:\n  Send Email returns:\n  {\n    status: \"success\",\n    email_sent: true,\n    recipient: \"[email address]\",\n    jobs_included: 120,\n    message_id: \"<abc123@mail.gmail.com>\",\n    delivered_at: \"2025-12-29T06:08:15Z\"\n  }\n\n  Workflow completion:\n  After this node executes:\n  - Main workflow completes\n  - User receives daily digest email\n  - Database contains:\n    - jobs table: Raw job data\n    - email_queue table: Formatted job cards\n    - errors table: Any failed companies\n  - Ready for tomorrow's scheduled run\n"
+      "id": "1106970f-f72f-4a30-99a0-99cf6fb18039",
+      "name": "Call 'Loop_Companies_v5-2'",
+      "notes": "═════════════════════════\n  NODE 3: CALL LOOP COMPANIES SUB-WORKFLOW  ═════════════════════════\n  Executes the company discovery and job\n  processing workflow\n\n  Purpose:\n  - Orchestrates company-by-company job discovery\n  - Passes profile data from parent to child workflow\n  - Handles all company iteration and error\n  management\n  - Returns control when all companies complete\n\n  Workflow called: Loop Companies v3.1\n  Input: Profile data from Load Profile node\n  - n8n automatically passes data from previous node\n  - Profile available as $json in child workflow\n\n  What Loop Companies v3.1 does:\n  1. Loads companies from companies table\n  2. Iterates one company at a time (fault tolerance)\n  3. For each company:\n     - Calls Apify API to discover jobs\n     - Enriches jobs with profile data\n  (_context_profile_data)\n     - Saves raw jobs to database (backup)\n     - Calls Loop Jobs sub-workflow with enriched jobs\n  4. Logs errors for failed companies\n  5. Returns summary when all complete\n\n  Execution time:\n  - ~40 companies × ~10 seconds per company = ~7-8 minutes total\n  - Includes: API calls, database saves,\n  sub-workflow calls\n  - May vary based on job counts and API\n  response times\n\n  Waiting behavior:\n  - This node WAITS for Loop Companies to\n  complete entirely\n  - All companies processed before advancing\n  - All jobs evaluated by AI before advancing\n  - This ensures complete data set for email\n  generation\n\n  Error handling:\n  - Loop Companies handles errors internally\n  - Failed companies logged to errors table\n  - Workflow continues even if some companies fail\n  - Main workflow always completes (no crash)\n\n  Return value:\n  Loop Companies returns:\n  {\n    workflow_run_id: 67890,\n    companies_processed: 40,\n    jobs_found: 120,\n    errors: 5,\n    execution_time_ms: 456000\n  }\n\n  This return data flows to Send Email for reference."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through all profile fields unchanged, add iteration start timestamp\nconst item = $input.first().json;\nreturn [{\n  json: {\n    ...item,\n    _run_started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        288
+      ],
+      "id": "4291f2ee-4c4d-45bb-89f3-3c0ce8a34268",
+      "name": "Set Start Time"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================================================\n// BUILD RUN REPORT\n// ====================================================================\n// Assembles one row for the run_reports table.\n//\n// Data sources:\n//   $input.first()               — Send_Email return value\n//   $('Set Start Time').item     — Current profile + _run_started_at\n//   $execution.id                — Main workflow's execution ID (PK)\n// ====================================================================\n\nconst result  = $input.first().json;\nconst profile = $('Set Start Time').item.json;\n\nconst startedAt   = new Date(profile._run_started_at);\nconst completedAt = new Date();\n\nreturn [{\n  json: {\n    // === PRIMARY KEY ===\n    // Main workflow's execution ID — unique per daily run\n    main_execution_id: $execution.id,\n\n    // === PROFILE IDENTITY ===\n    profile_id: profile.profile_id,\n    full_name:  profile.full_name,\n\n    // === SEND EMAIL STATUS ===\n    status:     result.status,\n    email_sent: result.email_sent,\n\n    // === JOB COUNTS ===\n    total_jobs:     result.total_jobs,\n    excellent_count: result.excellent_count,\n    strong_count:   result.strong_count,\n    consider_count: result.consider_count,\n    poor_count:     result.poor_count,\n\n    // === CROSS-REFERENCE IDS ===\n    // workflow_run_id links to email_queue and jobs tables\n    workflow_run_id: result.workflow_run_id,\n    message_id:      result.message_id || null,\n\n    // === TIMING ===\n    run_duration_ms: completedAt.getTime() - startedAt.getTime(),\n    completed_at:    completedAt.toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        272
+      ],
+      "id": "fad06a20-d39e-4620-8235-ad8e058cc668",
+      "name": "Build Run Report"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================================================\n// BUILD SUMMARY EMAIL\n// ====================================================================\n// Input: All run_reports rows for this execution (one per profile)\n// Output: Rendered HTML email + subject + recipient address\n// ====================================================================\n\nconst reports = $input.all().map(item => item.json);\n\n// --- Grand totals ---\nconst totals = reports.reduce((acc, r) => ({\n  total_jobs:     acc.total_jobs     + (r.total_jobs     || 0),\n  excellent_count: acc.excellent_count + (r.excellent_count || 0),\n  strong_count:   acc.strong_count   + (r.strong_count   || 0),\n  consider_count: acc.consider_count + (r.consider_count || 0),\n  poor_count:     acc.poor_count     + (r.poor_count     || 0),\n}), { total_jobs: 0, excellent_count: 0, strong_count: 0, consider_count: 0, poor_count: 0 });\n\nconst totalDurationMin = (\n  reports.reduce((acc, r) => acc + (r.run_duration_ms || 0), 0) / 60000\n).toFixed(1);\n\n// --- Recipient: first profile in the Profiles v5 table ---\nconst firstProfile = $('Load Profiles').first().json;\nconst recipientEmail = firstProfile.email;\nconst recipientName  = firstProfile.full_name;\n\n// --- Per-profile table rows ---\nconst profileRows = reports.map(r => `\n  <tr>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;\">${r.full_name}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;\">${r.total_jobs}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#10b981;font-weight:700;\">${r.excellent_count}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#3b82f6;\">${r.strong_count}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#f59e0b;\">${r.consider_count}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;\">${r.poor_count}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;\">${r.email_sent ? '✅' : '❌'}</td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;color:#9ca3af;font-size:12px;\">${((r.run_duration_ms || 0) / 60000).toFixed(1)}m</td>\n  </tr>`\n).join('');\n\nconst formattedDate = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\n\n// --- Subject line ---\nconst profileCount = reports.length;\nconst profileLabel = `${profileCount} Profile${profileCount !== 1 ? 's' : ''}`;\nconst subjectParts = [];\nif (totals.excellent_count > 0) subjectParts.push(`${totals.excellent_count} Excellent`);\nif (totals.strong_count > 0)    subjectParts.push(`${totals.strong_count} Strong`);\nconst subject = subjectParts.length > 0\n  ? `📊 Run Summary: ${profileLabel} • ${totals.total_jobs} Jobs • ${subjectParts.join(', ')}`\n  : `📊 Run Summary: ${profileLabel} • ${totals.total_jobs} Jobs`;\n\n// --- HTML email ---\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>RoleFinder Run Summary</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\">\n  <div style=\"max-width:700px;margin:0 auto;padding:20px;\">\n\n    <!-- Header -->\n    <div style=\"background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:28px 24px;border-radius:12px 12px 0 0;\">\n      <h1 style=\"margin:0 0 6px 0;color:#fff;font-size:24px;font-weight:700;\">📊 RoleFinder Run Summary</h1>\n      <p style=\"margin:0;color:rgba(255,255,255,0.85);font-size:14px;\">${formattedDate}</p>\n    </div>\n\n    <!-- Stats grid -->\n    <div style=\"background:#fff;padding:20px 24px 0;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;\">\n      <div style=\"display:grid;grid-template-columns:repeat(5,1fr);gap:12px;text-align:center;padding-bottom:20px;\">\n        <div style=\"padding:12px 8px;background:${totals.excellent_count > 0 ? '#f0fdf4' : '#f9fafb'};border-radius:8px;border:2px solid ${totals.excellent_count > 0 ? '#10b981' : '#e5e7eb'};\">\n          <div style=\"font-size:22px;font-weight:700;color:#10b981;\">${totals.excellent_count}</div>\n          <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-top:2px;\">Excellent</div>\n        </div>\n        <div style=\"padding:12px 8px;background:${totals.strong_count > 0 ? '#eff6ff' : '#f9fafb'};border-radius:8px;border:2px solid ${totals.strong_count > 0 ? '#3b82f6' : '#e5e7eb'};\">\n          <div style=\"font-size:22px;font-weight:700;color:#3b82f6;\">${totals.strong_count}</div>\n          <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-top:2px;\">Strong</div>\n        </div>\n        <div style=\"padding:12px 8px;background:${totals.consider_count > 0 ? '#fffbeb' : '#f9fafb'};border-radius:8px;border:2px solid ${totals.consider_count > 0 ? '#f59e0b' : '#e5e7eb'};\">\n          <div style=\"font-size:22px;font-weight:700;color:#f59e0b;\">${totals.consider_count}</div>\n          <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-top:2px;\">Consider</div>\n        </div>\n        <div style=\"padding:12px 8px;background:#f9fafb;border-radius:8px;border:2px solid #d1d5db;\">\n          <div style=\"font-size:22px;font-weight:700;color:#374151;\">${totals.total_jobs}</div>\n          <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-top:2px;\">Total Jobs</div>\n        </div>\n        <div style=\"padding:12px 8px;background:#f9fafb;border-radius:8px;border:2px solid #d1d5db;\">\n          <div style=\"font-size:22px;font-weight:700;color:#374151;\">${totalDurationMin}m</div>\n          <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-top:2px;\">Run Time</div>\n        </div>\n      </div>\n    </div>\n\n    <!-- Per-profile table -->\n    <div style=\"background:#fff;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none;margin-bottom:20px;overflow:hidden;\">\n      <table style=\"width:100%;border-collapse:collapse;font-size:13px;\">\n        <thead>\n          <tr style=\"background:#f9fafb;\">\n            <th style=\"padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Profile</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Total</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Excellent</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Strong</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Consider</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Poor</th>\n            <th style=\"padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Email</th>\n            <th style=\"padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;font-weight:600;\">Duration</th>\n          </tr>\n        </thead>\n        <tbody>\n          ${profileRows}\n        </tbody>\n      </table>\n    </div>\n\n    <!-- Footer -->\n    <div style=\"text-align:center;font-size:12px;color:#9ca3af;padding-bottom:20px;\">\n      Run ID: <code style=\"background:#f3f4f6;padding:2px 6px;border-radius:3px;font-family:monospace;\">${reports[0]?.main_execution_id}</code>\n      &nbsp;·&nbsp;\n      ${reports.length} profile${reports.length !== 1 ? 's' : ''} processed\n    </div>\n\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    subject,\n    html_body: html,\n    to_email: recipientEmail,\n    to_name:  recipientName\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        -112
+      ],
+      "id": "7047641f-e5b0-427b-b70f-dba98abfc1ee",
+      "name": "Build Summary Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "RoleFinder Jobs <finder@launchbridge.co>",
+        "toEmail": "={{ $json.to_name + ' <' + $json.to_email + '>' }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -224,
+        -112
+      ],
+      "id": "023a90aa-9d9f-4aa4-ba62-b6508cadd481",
+      "name": "Send an Email",
+      "webhookId": "a91cd3fd-7f81-4f37-aa10-517632b617b3",
+      "credentials": {
+        "smtp": {
+          "id": "KpZ7xpXU5PRtbLmE",
+          "name": "Dreamhost SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "UrjwkCiZjhwcpRf2",
+          "mode": "list",
+          "cachedResultName": "report test",
+          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/UrjwkCiZjhwcpRf2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email_sent": "={{ $json.email_sent }}",
+            "total_jobs": "={{ $json.total_jobs }}",
+            "excellent_count": "={{ $json.excellent_count }}",
+            "strong_count": 0,
+            "consider_count": 0,
+            "poor_count": 0,
+            "run_duration_ms": "={{ $json.run_duration_ms }}",
+            "main_execution_id": "={{ $json.main_execution_id }}",
+            "profile_id": "={{ $json.profile_id }}",
+            "full_name": "={{ $json.full_name }}",
+            "status": "={{ $json.status }}",
+            "workflow_run_id": "={{ $json.workflow_run_id }}",
+            "message_id": "={{ $json.message_id }}",
+            "completed_at": "={{ $json.completed_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "main_execution_id",
+              "displayName": "main_execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "profile_id",
+              "displayName": "profile_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "full_name",
+              "displayName": "full_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email_sent",
+              "displayName": "email_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "total_jobs",
+              "displayName": "total_jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "excellent_count",
+              "displayName": "excellent_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "strong_count",
+              "displayName": "strong_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "consider_count",
+              "displayName": "consider_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "poor_count",
+              "displayName": "poor_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "workflow_run_id",
+              "displayName": "workflow_run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "run_duration_ms",
+              "displayName": "run_duration_ms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        272
+      ],
+      "id": "944e9f4d-6292-4271-8c4f-e4c6f71f0f5d",
+      "name": "Save Run Report"
     }
   ],
   "pinData": {},
@@ -205,22 +452,18 @@
     },
     "Loop Over Profiles": {
       "main": [
-        [],
         [
           {
-            "node": "Load Companies",
+            "node": "Build Summary Email",
             "type": "main",
             "index": 0
-          },
+          }
+        ],
+        [
           {
-            "node": "Merge Profile+Companies",
+            "node": "Set Start Time",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Merge Profile+Done",
-            "type": "main",
-            "index": 1
           }
         ]
       ]
@@ -240,7 +483,7 @@
       "main": [
         [
           {
-            "node": "Call 'Loop_Companies_v5-1'",
+            "node": "Call 'Loop_Companies_v5-2'",
             "type": "main",
             "index": 0
           }
@@ -251,18 +494,7 @@
       "main": [
         [
           {
-            "node": "Call 'Send_Email_v3-1'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call 'Loop_Companies_v5-1'": {
-      "main": [
-        [
-          {
-            "node": "Merge Profile+Done",
+            "node": "Call 'Send_Email_v4-1'",
             "type": "main",
             "index": 0
           }
@@ -280,7 +512,72 @@
         ]
       ]
     },
-    "Call 'Send_Email_v3-1'": {
+    "Call 'Send_Email_v4-1'": {
+      "main": [
+        [
+          {
+            "node": "Build Run Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Loop_Companies_v5-2'": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Start Time": {
+      "main": [
+        [
+          {
+            "node": "Merge Profile+Companies",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Companies",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Profile+Done",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Run Report": {
+      "main": [
+        [
+          {
+            "node": "Save Run Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Email": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Run Report": {
       "main": [
         [
           {
@@ -298,10 +595,11 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "1b6f1462-abe3-4d6f-b756-f9f50982d511",
+  "versionId": "3b66cf4d-ea4e-422e-a910-afbfa49dc2bf",
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
   },
-  "id": "TAO41jrHqLsoShr1",
+  "id": "RAf5WLCiHINmSqydikD6N",
   "tags": []
 }
