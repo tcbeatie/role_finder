@@ -95,7 +95,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  MAIN v4.2 (Orchestrator)                                   │
+│  MAIN v6.1 (Orchestrator)                                   │
 │  Purpose: Load profiles and orchestrate multi-user pipeline │
 │  Input:   Manual/scheduled trigger                          │
 │  Actions: 1. Load Profiles from candidate_profile table     │
@@ -103,9 +103,11 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 │           3. For each profile:                              │
 │              a. Load Companies (filtered by profile_id)     │
 │              b. Merge Profile+Companies                     │
-│              c. Call Loop Companies v4.1                    │
+│              c. Call Loop Companies v5.1                    │
 │              d. Merge Profile+Done                          │
-│              e. Call Send Email v3.2                        │
+│              e. Call Send Email v4.1                        │
+│              f. Save run report row to run_reports table    │
+│           4. After all profiles: send admin summary email   │
 └────┬────────────────────────────────────────────────────┬───┘
      │ Passes profile+companies array ↓                   │
 ┌─────────────────────────────────────────────────────────────┐
@@ -125,7 +127,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email v3.2                                │
+│  WORKFLOW 3: Send Email v4.1                                │
 │  Purpose: Aggregate and deliver email digest                │
 │  Input:   workflow_run_id + email from Main                 │
 │  Output:  Professional HTML email via SMTP + status         │
@@ -149,7 +151,7 @@ Candidate profiles are stored in the `candidate_profile` database table, not har
 5. Loop Jobs uses profile data for AI evaluation without storing it in workflow
 6. Main workflow calls Send Email via sub-workflow execution
 
-### Multi-Profile Architecture (Main v4.2)
+### Multi-Profile Architecture (Main v6.1)
 
 Single workflow run can process multiple users sequentially.
 
@@ -162,7 +164,9 @@ Single workflow run can process multiple users sequentially.
    - **Call Loop Companies** processes all companies for this profile
    - **Merge Profile+Done** combines completion data with profile
    - **Call Send Email** delivers personalized digest to profile's email
-4. Loop advances to next profile after email sent
+   - **Save Run Report** persists per-profile stats to `run_reports` table
+4. Loop advances to next profile after run report is saved
+5. After all profiles complete: **Build Summary Email** sends an admin digest with grand totals across all profiles
 
 **Benefits**:
 - **No workflow duplication**: One set of workflows serves all users
@@ -173,17 +177,21 @@ Single workflow run can process multiple users sequentially.
 
 ### Workflow Details
 
-**Main v4.2 (8 nodes)** - Top-level orchestrator with multi-profile support
+**Main v6.1 (13 nodes)** - Top-level orchestrator with multi-profile support and run reporting
 - Entry point via manual trigger or cron schedule
 - Loads ALL candidate profiles from `candidate_profile` database table
 - Loops over each profile sequentially (enables multi-user support)
 - For each profile:
+  - Records iteration start time (`Set Start Time`)
   - Loads companies filtered by profile_id
   - Merges profile with companies into concatenated array
-  - Calls Loop Companies v4.1 sub-workflow (passes profile+companies)
+  - Calls Loop Companies v5.1 sub-workflow (passes profile+companies)
   - Waits for all companies to complete processing
   - Merges profile with completion data
-  - Calls Send Email v3.2 sub-workflow (passes workflow_run_id and profile)
+  - Calls Send Email v4.1 sub-workflow (passes workflow_run_id and profile)
+  - Builds a per-profile run report row (`Build Run Report`)
+  - Saves run report to `run_reports` data table (`Save Run Report`)
+- After all profiles complete: generates and sends an admin summary email (`Build Summary Email`) with grand totals across all profiles
 - Single workflow run can process multiple users
 
 **Loop Companies v5.1 (15 nodes)** - Job discovery
@@ -215,7 +223,7 @@ Single workflow run can process multiple users sequentially.
   - Saves to `email_queue` table with `workflow_run_id`
 - Returns to Loop Companies when all jobs complete
 
-**Send Email v3.2 (8 nodes)** - Email delivery with status responses
+**Send Email v4.1 (8 nodes)** - Email delivery with status responses
 - Receives `workflow_run_id` and `email` from Main workflow
 - Email address dynamically extracted from profile data
 - **Validates email queue has results before processing (If node)**
@@ -231,7 +239,7 @@ Single workflow run can process multiple users sequentially.
 - **Returns structured status object to parent workflow**
 - **Ensures Main workflow loop continues even with empty results**
 
-### Status Response Pattern (v3.2)
+### Status Response Pattern (v4.1)
 
 Send Email now implements dual-path execution with consistent status responses, ensuring the Main workflow's Loop Over Profiles never hangs:
 
@@ -242,6 +250,9 @@ Send Email now implements dual-path execution with consistent status responses, 
   "email_sent": true,
   "total_jobs": 20,
   "excellent_count": 3,
+  "strong_count": 8,
+  "consider_count": 6,
+  "poor_count": 3,
   "workflow_run_id": 67890,
   "timestamp": "2025-02-09T14:30:00.000Z",
   "message_id": "<abc123@mail.gmail.com>"
@@ -256,6 +267,9 @@ Send Email now implements dual-path execution with consistent status responses, 
   "email_sent": false,
   "total_jobs": 0,
   "excellent_count": 0,
+  "strong_count": 0,
+  "consider_count": 0,
+  "poor_count": 0,
   "workflow_run_id": null,
   "timestamp": "2025-02-09T14:30:00.000Z"
 }
@@ -296,6 +310,7 @@ Database tables:
 - `jobs` - Raw job data with searchable fields
 - `email_queue` - Formatted job cards linked by workflow_run_id
 - `errors` - API failures and no-results tracking
+- `run_reports` - Per-profile run stats (counts, timing, email status) saved by Main after each Send Email call; see `tables/template_run_reports.csv` for schema
 
 ---
 
@@ -468,10 +483,11 @@ AI Assessment: Perfect match - infrastructure focus...
 📚 **Complete documentation available in repository:**
 
 - **README.md** - You're looking at it!
-- **Main.json** - Main orchestrator v4.2 (8 nodes, multi-profile support)
+- **Main.json** - Main orchestrator v6.1 (13 nodes, multi-profile support + run reporting + admin summary email)
 - **Loop_Companies.json** - Workflow 1 v5.1 (15 nodes, dynamic Apify filters)
 - **Loop_Jobs.json** - Workflow 2 v5.1 (9 nodes, dynamic AI scoring)
-- **Send_Email.json** - Workflow 3 v3.2 (8 nodes, dual-path status responses)
+- **Send_Email.json** - Workflow 3 v4.1 (8 nodes, dual-path status responses with full category counts)
+- **tables/template_run_reports.csv** - Schema template for the `run_reports` data table
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
 
@@ -496,10 +512,10 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 1. **Import Workflows**
    ```bash
    # Import all four workflow JSON files into n8n
-   # Main.json (v4.2) - Multi-profile orchestrator
+   # Main.json (v6.1) - Multi-profile orchestrator with run reporting
    # Loop_Companies.json (v5.1) - Job discovery with dynamic filters
    # Loop_Jobs.json (v5.1) - AI evaluation with dynamic scoring
-   # Send_Email.json (v3.2) - Email delivery with status responses
+   # Send_Email.json (v4.1) - Email delivery with full category counts
    ```
 
 2. **Configure Credentials**
@@ -528,6 +544,7 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    CREATE TABLE jobs (...);  -- See documentation
    CREATE TABLE email_queue (...);
    CREATE TABLE errors (...);
+   CREATE TABLE run_reports (...);  -- See tables/template_run_reports.csv for schema
 
    -- Add indexes
    CREATE INDEX idx_email_queue_workflow ON email_queue(workflow_run_id);
@@ -582,21 +599,21 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 6. **Update Configuration**
    - Recipient email is automatically sourced from candidate_profile table
-   - Main v4.2 automatically processes all profiles (no filter needed)
+   - Main v6.1 automatically processes all profiles (no filter needed)
    - To limit to specific profiles, add filter in Load Profiles node
-   - Adjust scoring criteria in Loop Jobs v4.2 prompt if needed
+   - Adjust scoring criteria in Loop Jobs v5.1 prompt if needed
 
 7. **Test Execution**
    ```bash
    # Test with 3 companies first
-   # 1. Run Main v4.2 manually
+   # 1. Run Main v6.1 manually
    # 2. Verify jobs in database
    # 3. Check email received
    # 4. Review formatting
    ```
 
 8. **Schedule Daily Run**
-   - Add cron trigger to Main v4.2: `0 6 * * *` (6 AM daily)
+   - Add cron trigger to Main v6.1: `0 6 * * *` (6 AM daily)
    - Monitor first week for issues
    - Review cost and performance
 
@@ -686,7 +703,7 @@ WHERE profile_id = 'default';
 Both job discovery filters and AI scoring dimensions are dynamically read from this field.
 
 ### Supporting Multiple Users
-Add multiple profiles to `candidate_profile` table (each with unique email). Main v4.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
+Add multiple profiles to `candidate_profile` table (each with unique email). Main v6.1 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
 
 ### Customizing AI Criteria
 Update the `ai_scoring_criteria` section in `target_criteria` - no workflow changes needed:
@@ -707,16 +724,16 @@ WHERE profile_id = 'default';
 The Loop Jobs workflow automatically uses your custom dimensions in AI evaluation prompts.
 
 ### Different Email Formats
-Modify HTML template in Send Email v3.2 Build Email node - test with pin data.
+Modify HTML template in Send Email v4.1 Build Email node - test with pin data.
 
 ### Multiple Recipients
-Add multiple profiles to candidate_profile table (Main v4.2 automatically processes all). Each profile receives their own personalized digest.
+Add multiple profiles to candidate_profile table (Main v6.1 automatically processes all). Each profile receives their own personalized digest.
 
 ### Alternative Delivery
 Replace SMTP node with Slack, Discord, or database save.
 
 ### Weekly Digests
-Change cron schedule in Main v4.2 and modify email query to include last 7 days.
+Change cron schedule in Main v6.1 and modify email query to include last 7 days.
 
 ---
 
@@ -739,12 +756,13 @@ Change cron schedule in Main v4.2 and modify email query to include last 7 days.
 ## Project Status
 
 **Current State:**
-- ✅ Production-ready four-workflow architecture with orchestrator (Main v4.2)
+- ✅ Production-ready four-workflow architecture with orchestrator (Main v6.1)
 - ✅ Multi-profile support (process multiple users in single run)
 - ✅ Profile externalization (clean workflow files, no PII in JSON)
 - ✅ Comprehensive documentation (116KB)
 - ✅ Fault-tolerant design with error handling
-- ✅ **Dual-path status responses (Send Email v3.2) prevent workflow hangs**
+- ✅ **Dual-path status responses (Send Email v4.1) prevent workflow hangs**
+- ✅ **Per-run summary email with full category counts saved to `run_reports` table**
 - ✅ Cost-efficient ($1.84/day)
 - ✅ Complete traceability and monitoring
 
@@ -778,7 +796,7 @@ This project is open source and contributions are welcome. The architecture is d
 **How to adapt RoleFinder for your own use:**
 1. Fork the repository
 2. Update the `candidate_profile` table with your resume and criteria
-3. Modify scoring criteria in Loop Jobs v4.2 to match your targets
+3. Modify scoring criteria in Loop Jobs v5.1 to match your targets
 4. Populate `companies` table with your target list
 5. Configure your own API credentials (Apify, Anthropic, SMTP)
 
@@ -869,4 +887,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: February 9, 2026*
+*Last Updated: February 12, 2026*

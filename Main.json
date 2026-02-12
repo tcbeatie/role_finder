@@ -189,7 +189,8 @@
         288
       ],
       "id": "4291f2ee-4c4d-45bb-89f3-3c0ce8a34268",
-      "name": "Set Start Time"
+      "name": "Set Start Time",
+      "notes": "════════════════════════════════════════════════\n  NODE: SET START TIME\n════════════════════════════════════════════════\n  Stamps the per-profile iteration start time\n  and serves as the fan-out hub for the pipeline.\n\n  Input:  Single profile item from Loop Over Profiles\n  Output: All profile fields + _run_started_at (ISO timestamp)\n\n  Why _run_started_at is added here:\n    This node fires BEFORE the two long-running\n    sub-workflows (Loop Companies + Send Email).\n    Build Run Report later subtracts this timestamp\n    from its own new Date() to compute\n    run_duration_ms for the run report row.\n\n  Fan-out: output connects to THREE nodes at once.\n  n8n sends the same item to all three:\n\n    1. Merge Profile+Companies (input 0)\n       Provides profile fields (resume_text,\n       target_criteria) to the company merge\n\n    2. Load Companies\n       Provides profile_id to filter the\n       companies database query\n\n    3. Merge Profile+Done (input 1)\n       Provides full_name + email so Send Email\n       knows where to deliver the digest\n\n  This fan-out launches the entire per-profile\n  pipeline from a single node output.\n\n  Next nodes (all receive the same item):\n    Merge Profile+Companies\n    Load Companies\n    Merge Profile+Done"
     },
     {
       "parameters": {
@@ -202,7 +203,8 @@
         272
       ],
       "id": "fad06a20-d39e-4620-8235-ad8e058cc668",
-      "name": "Build Run Report"
+      "name": "Build Run Report",
+      "notes": "════════════════════════════════════════════════\n  NODE: BUILD RUN REPORT\n════════════════════════════════════════════════\n  See jsCode for full field mapping and schema.\n\n  Three data sources:\n    $input.first()            — Send_Email return value\n                                (status, counts, message_id)\n    $('Set Start Time').item  — Current profile +\n                                _run_started_at timestamp\n    $execution.id             — Main workflow execution ID\n                                (primary key for this row)\n\n  main_execution_id as PK:\n    Each daily run has one unique execution ID.\n    All per-profile rows share this ID, allowing\n    Build Summary Email to GROUP BY run and\n    produce grand totals across profiles.\n\n  Next node: Save Run Report\n"
     },
     {
       "parameters": {
@@ -215,7 +217,8 @@
         -112
       ],
       "id": "7047641f-e5b0-427b-b70f-dba98abfc1ee",
-      "name": "Build Summary Email"
+      "name": "Build Summary Email",
+      "notes": "════════════════════════════════════════════════\n  NODE: BUILD SUMMARY EMAIL\n════════════════════════════════════════════════\n  Fires ONCE after all profiles complete\n  (done branch of Loop Over Profiles).\n\n  Input:  All run report items collected during\n          this execution (one per profile)\n  Output: Rendered HTML email, subject line,\n          and recipient address\n\n  Recipient strategy:\n    Always sends to the first profile in the\n    Profiles v5 table via $('Load Profiles').first()\n    This is intentional for a single-admin setup.\n    For a dedicated admin recipient, add an\n    admin_email field to the profile table.\n\n  Multi-profile aggregation:\n    Grand totals computed with reduce() across\n    all profiles. Per-profile rows rendered as\n    an HTML <table> (correct email-client layout).\n\n  Next node: Send an Email\n"
     },
     {
       "parameters": {
@@ -423,7 +426,8 @@
         272
       ],
       "id": "944e9f4d-6292-4271-8c4f-e4c6f71f0f5d",
-      "name": "Save Run Report"
+      "name": "Save Run Report",
+      "notes": "=══════════════════════════════════════\n  NODE: SAVE RUN REPORT\n═══════════════════════════════════════\n  Persists one row per profile to the run_reports\n  data table, then advances the profile loop.\n\n  Loop advancement:\n    Output feeds back into Loop Over Profiles\n    (input 0), signalling the loop to advance\n    to the next profile iteration.\n\n  Next node: Loop Over Profiles\n"
     }
   ],
   "pinData": {},
@@ -595,7 +599,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "3b66cf4d-ea4e-422e-a910-afbfa49dc2bf",
+  "versionId": "a8741627-fd1a-4d91-9ccb-fe501bf62604",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
