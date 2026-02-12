@@ -156,7 +156,7 @@
           "value": "Rk3HbJMm_Vg_0L0o2CIHC",
           "mode": "list",
           "cachedResultUrl": "/workflow/Rk3HbJMm_Vg_0L0o2CIHC",
-          "cachedResultName": "Loop_Companies_v5-2"
+          "cachedResultName": "Loop_Companies_v5-1"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -175,7 +175,7 @@
         0
       ],
       "id": "1106970f-f72f-4a30-99a0-99cf6fb18039",
-      "name": "Call 'Loop_Companies_v5-2'",
+      "name": "Call 'Loop_Companies_v5-1'",
       "notes": "═════════════════════════\n  NODE 3: CALL LOOP COMPANIES SUB-WORKFLOW  ═════════════════════════\n  Executes the company discovery and job\n  processing workflow\n\n  Purpose:\n  - Orchestrates company-by-company job discovery\n  - Passes profile data from parent to child workflow\n  - Handles all company iteration and error\n  management\n  - Returns control when all companies complete\n\n  Workflow called: Loop Companies v3.1\n  Input: Profile data from Load Profile node\n  - n8n automatically passes data from previous node\n  - Profile available as $json in child workflow\n\n  What Loop Companies v3.1 does:\n  1. Loads companies from companies table\n  2. Iterates one company at a time (fault tolerance)\n  3. For each company:\n     - Calls Apify API to discover jobs\n     - Enriches jobs with profile data\n  (_context_profile_data)\n     - Saves raw jobs to database (backup)\n     - Calls Loop Jobs sub-workflow with enriched jobs\n  4. Logs errors for failed companies\n  5. Returns summary when all complete\n\n  Execution time:\n  - ~40 companies × ~10 seconds per company = ~7-8 minutes total\n  - Includes: API calls, database saves,\n  sub-workflow calls\n  - May vary based on job counts and API\n  response times\n\n  Waiting behavior:\n  - This node WAITS for Loop Companies to\n  complete entirely\n  - All companies processed before advancing\n  - All jobs evaluated by AI before advancing\n  - This ensures complete data set for email\n  generation\n\n  Error handling:\n  - Loop Companies handles errors internally\n  - Failed companies logged to errors table\n  - Workflow continues even if some companies fail\n  - Main workflow always completes (no crash)\n\n  Return value:\n  Loop Companies returns:\n  {\n    workflow_run_id: 67890,\n    companies_processed: 40,\n    jobs_found: 120,\n    errors: 5,\n    execution_time_ms: 456000\n  }\n\n  This return data flows to Send Email for reference."
     },
     {
@@ -487,7 +487,7 @@
       "main": [
         [
           {
-            "node": "Call 'Loop_Companies_v5-2'",
+            "node": "Call 'Loop_Companies_v5-1'",
             "type": "main",
             "index": 0
           }
@@ -527,7 +527,7 @@
         ]
       ]
     },
-    "Call 'Loop_Companies_v5-2'": {
+    "Call 'Loop_Companies_v5-1'": {
       "main": [
         [
           {
