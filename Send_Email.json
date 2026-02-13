@@ -20,10 +20,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "8Z8MLvTvK4YX7SuB",
           "mode": "list",
-          "cachedResultName": "Email_Queue",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/8Z8MLvTvK4YX7SuB"
+          "cachedResultName": "Email_Queue"
         },
         "filters": {
           "conditions": [
@@ -93,8 +91,7 @@
       "webhookId": "186d3b95-4b94-4e2a-a814-0c21e5affdc1",
       "credentials": {
         "smtp": {
-          "id": "KpZ7xpXU5PRtbLmE",
-          "name": "Dreamhost SMTP"
+          "name": "SMTP"
         }
       },
       "notes": "=═══════════════════════════════════\n  NODE 5: SEND EMAIL (SMTP DELIVERY)\n  Purpose: Deliver formatted HTML email digest\n  to recipient\n════════════════════════════════════\n\n  SMTP Configuration:\n  - From: \"[Email Name <email@address>]\"\n  - To: Dynamic from Start node (see below)\n  - Subject: {{ $json.subject }} (from Build Email)\n  - Body: {{ $json.html_body }} (formatted HTML)\n\n  CRITICAL: Recipient Address Uses [1] Index\n\n  {{ $('Start').all()[1].json.full_name + ' <' +\n     $('Start').all()[1].json.email + '>' }}\n\n  Parent workflow passes TWO items to Start node:\n  - Item [0]: Workflow summary (workflow_run_id,\n    companies_processed)\n  - Item [1]: User configuration (full_name,\n    email, preferences)\n\n  This node accesses Item [1] for recipient info."
@@ -240,16 +237,13 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
   "versionId": "0fdefc75-828c-476f-a4db-ea7e4cd68ef5",
-  "meta": {
-    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
-  },
   "id": "LKVeUWMswVvDabFDRHVyZ",
   "tags": []
 }

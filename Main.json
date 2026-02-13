@@ -6,10 +6,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "8luwjAmsG72hQ4vQ",
           "mode": "list",
-          "cachedResultName": "Profiles v5",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/8luwjAmsG72hQ4vQ"
+          "cachedResultName": "Profiles v5"
         }
       },
       "type": "n8n-nodes-base.dataTable",
@@ -53,10 +51,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "OfMhQ1GQzoU3rBiJ",
           "mode": "list",
-          "cachedResultName": "Companies v5",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/OfMhQ1GQzoU3rBiJ"
+          "cachedResultName": "Companies v5"
         },
         "filters": {
           "conditions": [
@@ -124,9 +120,7 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "LKVeUWMswVvDabFDRHVyZ",
           "mode": "list",
-          "cachedResultUrl": "/workflow/LKVeUWMswVvDabFDRHVyZ",
           "cachedResultName": "Send_Email_v4-1"
         },
         "workflowInputs": {
@@ -153,9 +147,7 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "Rk3HbJMm_Vg_0L0o2CIHC",
           "mode": "list",
-          "cachedResultUrl": "/workflow/Rk3HbJMm_Vg_0L0o2CIHC",
           "cachedResultName": "Loop_Companies_v5-1"
         },
         "workflowInputs": {
@@ -222,7 +214,7 @@
     },
     {
       "parameters": {
-        "fromEmail": "RoleFinder Jobs <finder@launchbridge.co>",
+        "fromEmail": "RoleFinder Jobs <sender@example.com>",
         "toEmail": "={{ $json.to_name + ' <' + $json.to_email + '>' }}",
         "subject": "={{ $json.subject }}",
         "html": "={{ $json.html_body }}",
@@ -239,8 +231,7 @@
       "webhookId": "a91cd3fd-7f81-4f37-aa10-517632b617b3",
       "credentials": {
         "smtp": {
-          "id": "KpZ7xpXU5PRtbLmE",
-          "name": "Dreamhost SMTP"
+          "name": "SMTP"
         }
       }
     },
@@ -248,10 +239,8 @@
       "parameters": {
         "dataTableId": {
           "__rl": true,
-          "value": "UrjwkCiZjhwcpRf2",
           "mode": "list",
-          "cachedResultName": "report test",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/UrjwkCiZjhwcpRf2"
+          "cachedResultName": "run_reports"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -259,9 +248,9 @@
             "email_sent": "={{ $json.email_sent }}",
             "total_jobs": "={{ $json.total_jobs }}",
             "excellent_count": "={{ $json.excellent_count }}",
-            "strong_count": 0,
-            "consider_count": 0,
-            "poor_count": 0,
+            "strong_count": "={{ $json.strong_count }}",
+            "consider_count": "={{ $json.consider_count }}",
+            "poor_count": "={{ $json.poor_count }}",
             "run_duration_ms": "={{ $json.run_duration_ms }}",
             "main_execution_id": "={{ $json.main_execution_id }}",
             "profile_id": "={{ $json.profile_id }}",
@@ -593,17 +582,13 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
   "versionId": "a8741627-fd1a-4d91-9ccb-fe501bf62604",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
-  },
   "id": "RAf5WLCiHINmSqydikD6N",
   "tags": []
 }

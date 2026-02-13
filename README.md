@@ -289,8 +289,8 @@ Send Email now implements dual-path execution with consistent status responses, 
 - **Job Discovery**: Apify Career Site Job Listing API
 - **AI Evaluation**: Anthropic Claude Sonnet 4.5
 - **Email Delivery**: SMTP (standard email protocol)
-- **Data Storage**: n8n Data Tables, then later Airtable
-- **Deployment**: n8n-hosted, then later Docker-based (n8n + database)
+- **Data Storage**: n8n Data Tables (built-in)
+- **Deployment**: n8n Cloud or self-hosted (Docker)
 
 ---
 
@@ -511,11 +511,11 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 1. **Import Workflows**
    ```bash
-   # Import all four workflow JSON files into n8n
-   # Main.json (v6.1) - Multi-profile orchestrator with run reporting
-   # Loop_Companies.json (v5.1) - Job discovery with dynamic filters
-   # Loop_Jobs.json (v5.1) - AI evaluation with dynamic scoring
-   # Send_Email.json (v4.1) - Email delivery with full category counts
+   # Import in this order (sub-workflows must exist before their parent):
+   # 1. Loop_Jobs.json (v5.1) - AI evaluation with dynamic scoring
+   # 2. Loop_Companies.json (v5.1) - Job discovery with dynamic filters
+   # 3. Send_Email.json (v4.1) - Email delivery with full category counts
+   # 4. Main.json (v6.1) - Multi-profile orchestrator with run reporting
    ```
 
 2. **Configure Credentials**
@@ -536,9 +536,11 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    );
 
    CREATE TABLE companies (
-     company_id VARCHAR(50) PRIMARY KEY,
+     profile_id VARCHAR(50),           -- links to candidate_profile
+     company_id VARCHAR(50),
      company_name VARCHAR(100),
-     domain VARCHAR(100)
+     domain VARCHAR(100),
+     PRIMARY KEY (profile_id, company_id)
    );
 
    CREATE TABLE jobs (...);  -- See documentation
@@ -590,14 +592,15 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 
 5. **Populate Companies**
    ```sql
-   -- Add target companies
-   INSERT INTO companies VALUES
-     ('anthropic', 'Anthropic', 'anthropic.com'),
-     ('openai', 'OpenAI', 'openai.com'),
-     -- ... add 40 companies
+   -- Add target companies (profile_id must match a row in candidate_profile)
+   INSERT INTO companies (profile_id, company_id, company_name, domain) VALUES
+     ('default', 'anthropic', 'Anthropic', 'anthropic.com'),
+     ('default', 'openai', 'OpenAI', 'openai.com'),
+     -- ... add more companies using the same profile_id
    ```
 
 6. **Update Configuration**
+   - Update `fromEmail` in two places: the "Send an Email" node in Main.json and the "Send email" node in Send_Email.json — change `sender@example.com` to your actual sending address
    - Recipient email is automatically sourced from candidate_profile table
    - Main v6.1 automatically processes all profiles (no filter needed)
    - To limit to specific profiles, add filter in Load Profiles node
