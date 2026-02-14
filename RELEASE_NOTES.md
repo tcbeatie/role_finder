@@ -1,10 +1,10 @@
 # RoleFinder Release Notes
 
-## Latest Release: v0.6.0
+## Current Beta: v0.6.0
 
 **Release Date:** February 12, 2026
 **Branch:** `37-add-main-summary-report`
-**Status:** Production-Ready
+**Status:** Beta
 
 ### Overview
 
@@ -165,7 +165,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Version History
 
-### v0.6.0 (2026-02-12)
+### v0.6.0 (2026-02-12) — Beta
 
 **Added:**
 - `run_reports` data table for per-profile run history (schema: `tables/template_run_reports.csv`)
@@ -280,7 +280,6 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 ## Support
 
 For issues or questions:
-- Review `WORKFLOW_DOCUMENTATION_README.md` for troubleshooting
 - Check workflow execution logs in n8n UI
 - Query `errors` table for logged failures
 - Refer to `TODO.md` for planned enhancements

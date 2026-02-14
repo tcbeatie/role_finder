@@ -890,4 +890,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: February 12, 2026*
+*Last Updated: February 14, 2026*
