@@ -4,7 +4,7 @@
 
 ### 1. Schedule Daily Runs
 - [ ] **Configure n8n native cron trigger**
-  - Add cron trigger to Loop Companies workflow
+  - Add cron trigger to Main v6.1 workflow (orchestrator entry point)
   - Schedule: `0 6 * * *` (6:00 AM daily)
   - Test trigger fires correctly
   - Verify timezone settings (local vs UTC)
@@ -12,7 +12,7 @@
   
 - [ ] **Alternative: Implement external scheduler** (if n8n cron unreliable)
   - Set up external cron (system crontab or GitHub Actions)
-  - Create webhook trigger in Loop Companies
+  - Create webhook trigger in Main v6.1
   - Call webhook URL from external scheduler
   - Add authentication to webhook
 
@@ -48,52 +48,57 @@
 
 ---
 
-### 3. Externalize Resume/Profile Data
-Currently hardcoded in Loop Jobs workflow → Move to external storage
+### 2a. Fix Match Category Count Bugs (Issue #42)
+Three correctness bugs in the run_reports pipeline discovered post-v0.6.0 merge:
 
-- [DONE Option C] **Create profile storage**
-  - **Option A**: New database table `candidate_profiles`
-    ```sql
-    CREATE TABLE candidate_profiles (
-      profile_id VARCHAR(50) PRIMARY KEY,
-      profile_name VARCHAR(100),
-      resume_text TEXT,
-      target_criteria JSONB,
-      created_at TIMESTAMP,
-      updated_at TIMESTAMP
-    );
-    ```
-  - **Option B**: External file (GitHub Gist, S3, or local file)
-  - **Option C**: n8n data table with single row
+- [ ] **STRONG_MATCH dead branch** — Loop Jobs emits `STRONG_MATCH` as a recommendation but no downstream path handles it; those jobs are silently dropped from category counts
+- [ ] **REJECT uncounted** — `POOR_FIT`/`REJECT` category is evaluated but not tallied in Send Email's `poor_count` return value
+- [ ] **Hardcoded zeros in Save Run Report** — Build Run Report node writes literal `0` for some count fields instead of reading from Send Email's structured response
 
-- [DONE] **Update Loop Jobs workflow**
-  - Add "Load Profile" node at start
-  - Remove hardcoded profile from "Add Resume Context"
-  - Replace with: `profile_text: $('Load Profile').item.json.resume_text`
-  - Test with loaded profile
+Fix approach:
+  - Audit Loop Jobs recommendation categories against Send Email aggregation logic
+  - Confirm which label (`STRONG_MATCH` vs `GOOD_MATCH`) the AI actually returns and align node routing
+  - Verify Send Email `Success Response` returns non-zero values for all five count fields
+  - Confirm Build Run Report reads each count from `$('Call Send Email').item.json.*` (not hardcoded)
+  - Test with a real run and query `run_reports` to verify all columns populate correctly
 
-- [ ] **Create profile management workflow** (optional)
+**Why**: run_reports data is wrong today — category counts undercount matches and make historical analysis unreliable
+**Estimated effort**: 2-3 hours
+**Tracking**: GitHub issue #42
+
+---
+
+### ~~3. Externalize Resume/Profile Data~~ ✅ DONE (v0.4.1)
+Profile data moved from hardcoded workflow nodes to `candidate_profile` database table. Loaded once at Main startup, passed to sub-workflows via `_context_*` fields. No personal data in workflow JSON files.
+
+- [ ] **Create profile management workflow** (optional future enhancement)
   - CRUD operations for profiles
   - Version history tracking
-  - Multiple profile support (future)
-
-**Why**: Easier profile updates, version control, multi-user support
-**Estimated effort**: 2 hours
 
 ---
 
-### 3a. Externalize Company Data
-Currently loaded in Loop Companies workflow → Move to Main loop
+### ~~3a. Externalize Company Data~~ ✅ DONE (v0.4.1)
+Companies moved to `companies` database table with profile_id foreign key. Main v6.1 loads and filters companies per profile.
 
 ---
 
-### 3b. Externalize Apify Data
-Currently hardcoded for Apify → Move to Profile
+### 3b. Externalize Remaining Apify Filters
+`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.1:
+
+- [ ] **Externalize `timeRange`** — move from Build Request node to `apify_filters.timeRange`
+- [ ] **Externalize `locationSearch`** — move from Build Request node to `apify_filters.locationSearch`
+- [ ] **Externalize `aiWorkArrangementFilter`** — move from Build Request node to `apify_filters.aiWorkArrangementFilter`
+
+All three should read from `_context_target_criteria.apify_filters` exactly as `titleSearch` does. No schema changes needed — the JSON keys already exist in the documented `target_criteria` structure.
+
+**Why**: Per-user location/arrangement/timeframe filters without workflow edits; required for proper multi-user support
+**Estimated effort**: 1-2 hours
+**Tracking**: Deferred from v0.5.0 → v0.6.0 → now targeting v0.7.0
 
 ---
 
-### 3c. Fail nicely when zero jobs 
-Currently breaks at db query if no jobs → Send a "none today!" email
+### ~~3c. Fail nicely when zero jobs~~ ✅ DONE (v0.5.1 / v0.4.1)
+Send Email v4.1 implements dual-path execution: empty queue → Skip path returns structured `{status: "skipped", email_sent: false, total_jobs: 0, ...}` response; Main loop continues to next profile without hanging.
 
 ---
 
@@ -162,7 +167,7 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
   - Export workflows from n8n Cloud (JSON)
   - Import into self-hosted instance
   - Reconfigure credentials (not exported)
-  - Test all three workflows end-to-end
+  - Test all four workflows end-to-end (Main, Loop Companies, Loop Jobs, Send Email)
 
 - [ ] **Migrate database**
   - Export data tables from n8n Cloud
@@ -194,6 +199,19 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
 ---
 
 ## 🔧 Operational Improvements
+
+### 5a. Create `run_reports` Data Table
+New table added in v0.6.0 — must be created in n8n before Main v6.1 can persist run history:
+
+- [ ] **Create `run_reports` table** using schema at `tables/template_run_reports.csv`
+  - Columns: `main_execution_id`, `profile_id`, `full_name`, `status`, `email_sent`, `total_jobs`, `excellent_count`, `strong_count`, `consider_count`, `poor_count`, `workflow_run_id`, `message_id`, `run_duration_ms`, `completed_at`
+  - One row per profile per daily run
+  - `main_execution_id` links rows from the same orchestrator execution
+
+**Why**: Main v6.1 Save Run Report node will error without this table
+**Estimated effort**: 15 minutes
+
+---
 
 ### 6. Database Optimization
 - [ ] **Create indexes for performance**
@@ -237,8 +255,8 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
 ### 7. Monitoring & Alerting
 - [ ] **Set up execution monitoring**
   - Create n8n workflow for monitoring
-  - Check: Loop Companies ran in last 24 hours
-  - Check: Email was sent successfully
+  - Check: Main v6.1 ran in last 24 hours (query `run_reports` table for recent rows)
+  - Check: Email was sent successfully (run_reports.email_sent = true)
   - Alert if workflow fails or doesn't run
   - Send to email or Slack
 
@@ -452,26 +470,23 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
 ---
 
 ### 15. Multi-User Support
-- [ ] **User management system**
-  - Add users table with profiles
-  - Multiple candidate profiles
-  - Each user gets personalized email
-  - Share company list, separate evaluations
+**Core infrastructure done in v0.6.0** — Main v6.1 loops over all `candidate_profile` rows; each user gets a personalized digest and a `run_reports` row. Add a user by inserting a database row.
 
-- [ ] **Web interface for configuration**
-  - Update profile without editing workflow
-  - Manage company list
-  - Configure email preferences
-  - View historical digests
+- [x] Multiple candidate profiles with per-profile companies
+- [x] Loop Over Profiles in Main v6.1 — sequential, isolated processing
+- [x] Per-profile email digest delivery
+- [x] Per-profile run stats in `run_reports`
+- [ ] **Production hardening** — test with 3+ active profiles end-to-end (planned v0.7.0)
+- [ ] **Web interface for configuration** (future)
+  - Update profile without editing database directly
+  - Manage company list via UI
+  - View historical digests and run_reports
+- [ ] **Team/shared mode** (future)
+  - Multiple users tracking the same company list
+  - Collaborative job board with comments
 
-- [ ] **Team/shared mode**
-  - Multiple users tracking same companies
-  - Shared email with all evaluations
-  - Collaborative job board
-  - Comment/discuss jobs in UI
-
-**Why**: Expand beyond single user, team utility
-**Estimated effort**: 20+ hours (significant project)
+**Why**: Core multi-user workflow is live; hardening and UI are the remaining gaps
+**Estimated effort**: Production hardening 2 hours; UI 20+ hours
 
 ---
 
@@ -500,33 +515,36 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
 
 ## 📊 Priority Matrix
 
-### Do First (This Week)
-1. ✅ Schedule daily runs
-2. ✅ Validate API credits
-3. ✅ Test with full company list
+### Do First (v0.7.0 target)
+1. **Fix match category count bugs** (issue #42) — correctness bug in run_reports data
+2. **Create `run_reports` table** (5a) — required for Main v6.1 Save Run Report node
+3. **Externalize remaining Apify filters** (3b) — timeRange, locationSearch, aiWorkArrangementFilter
+4. **Schedule daily runs** (1) — cron trigger on Main v6.1
+5. **Validate API credits** (2)
 
 ### Do Next (This Month)
-4. Externalize resume/profile
-5. Database optimization (indexes)
-6. Monitoring & alerting setup
-7. Email template improvements
+6. Database optimization (indexes + constraints)
+7. Monitoring & alerting setup
+8. Multi-user production hardening (test 3+ profiles)
+9. Error handling enhancements (try/catch in Code nodes, retry logic)
 
 ### Consider (Next Quarter)
-8. Batch Apify requests (cost savings)
-9. Self-host n8n (bigger cost savings)
-10. Historical analysis dashboard
-11. AI improvements
+10. Batch Apify requests (cost savings)
+11. Self-host n8n (bigger cost savings)
+12. Historical analysis dashboard (run_reports data now available!)
+13. AI improvements
 
 ### Future/Maybe
-12. Multi-user support
-13. Direct ATS integrations
-14. Real-time webhooks
-15. Mobile app
+14. Direct ATS integrations
+15. Real-time webhooks
+16. Mobile app
+17. Profile management web UI
 
 ---
 
 ## 🎯 Quick Wins (< 1 hour each)
 
+- [ ] **Create `run_reports` table** from `tables/template_run_reports.csv` schema (required for v0.6.0)
 - [ ] Add unique constraint to email_queue table
 - [ ] Set up uptime monitoring (UptimeRobot free tier)
 - [ ] Create simple health check webhook
@@ -584,22 +602,30 @@ Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
 ## ✅ Completion Criteria
 
 **Production Ready:**
-- [x] All three workflows deployed and documented
+- [x] All four workflows deployed and documented (Main v6.1, Loop Companies v5.1, Loop Jobs v5.1, Send Email v4.1)
+- [x] Profile and company data externalized to database
+- [x] Multi-user pipeline (Loop Over Profiles in Main v6.1)
+- [x] Per-profile run history via `run_reports` table (v0.6.0)
+- [x] Admin summary email after all profiles complete (v0.6.0)
+- [ ] `run_reports` table created in n8n instance (5a)
+- [ ] Match category count bugs fixed (issue #42)
 - [ ] Daily runs scheduled and reliable
 - [ ] Monitoring and alerts configured
 - [ ] Database optimized with indexes
-- [ ] Tested with full 40 company list
+- [ ] Tested with full 40 company list across 2+ profiles
 - [ ] Email quality validated
 - [ ] Cost tracking implemented
 
 **Optimized:**
-- [ ] Resume externalized
+- [x] Profile/resume externalized (v0.4.1)
+- [x] Apify title filters externalized (v0.5.0)
+- [ ] Remaining Apify filters externalized (timeRange, locationSearch, aiWorkArrangementFilter)
 - [ ] Apify requests batched (75% cost reduction)
 - [ ] Self-hosted n8n (60% hosting cost reduction)
-- [ ] Historical dashboard deployed
+- [ ] Historical dashboard deployed (run_reports data now available as foundation)
 
 **Extended:**
-- [ ] Multi-user support
+- [x] Multi-user support — core pipeline done; UI/hardening remaining
 - [ ] Direct ATS integrations
 - [ ] Real-time alerts
 
@@ -623,4 +649,4 @@ Most high-risk changes (self-hosting, batching) are optional optimizations. Core
 
 ---
 
-*Last Updated: December 29, 2025*
+*Last Updated: February 13, 2026 (post v0.6.0 merge)*
