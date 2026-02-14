@@ -2,22 +2,8 @@
 
 ## 🚀 High Priority (Production Readiness)
 
-### 1. Schedule Daily Runs
-- [ ] **Configure n8n native cron trigger**
-  - Add cron trigger to Main v6.1 workflow (orchestrator entry point)
-  - Schedule: `0 6 * * *` (6:00 AM daily)
-  - Test trigger fires correctly
-  - Verify timezone settings (local vs UTC)
-  - Monitor first 3 scheduled executions
-  
-- [ ] **Alternative: Implement external scheduler** (if n8n cron unreliable)
-  - Set up external cron (system crontab or GitHub Actions)
-  - Create webhook trigger in Main v6.1
-  - Call webhook URL from external scheduler
-  - Add authentication to webhook
-
-**Why**: Core functionality - daily automated runs
-**Estimated effort**: 30 minutes
+### ~~1. Schedule Daily Runs~~ ✅ DONE
+Main v6.1 has a `Schedule Trigger` node wired to `Load Profiles`, configured to fire at hour 7 daily. Both `Start` (manual) and `Schedule Trigger` feed the same pipeline.
 
 ---
 
@@ -519,8 +505,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 1. **Fix match category count bugs** (issue #42) — correctness bug in run_reports data
 2. **Create `run_reports` table** (5a) — required for Main v6.1 Save Run Report node
 3. **Externalize remaining Apify filters** (3b) — timeRange, locationSearch, aiWorkArrangementFilter
-4. **Schedule daily runs** (1) — cron trigger on Main v6.1
-5. **Validate API credits** (2)
+4. **Validate API credits** (2)
 
 ### Do Next (This Month)
 6. Database optimization (indexes + constraints)
@@ -607,9 +592,9 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [x] Multi-user pipeline (Loop Over Profiles in Main v6.1)
 - [x] Per-profile run history via `run_reports` table (v0.6.0)
 - [x] Admin summary email after all profiles complete (v0.6.0)
+- [x] Daily runs scheduled — Schedule Trigger in Main v6.1 fires at hour 7
 - [ ] `run_reports` table created in n8n instance (5a)
 - [ ] Match category count bugs fixed (issue #42)
-- [ ] Daily runs scheduled and reliable
 - [ ] Monitoring and alerts configured
 - [ ] Database optimized with indexes
 - [ ] Tested with full 40 company list across 2+ profiles
