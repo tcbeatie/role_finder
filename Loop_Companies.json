@@ -138,10 +138,8 @@
       "parameters": {
         "dataTableId": {
           "__rl": true,
-          "value": "iiSsg3nWcVECYUyk",
           "mode": "list",
-          "cachedResultName": "Jobs",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/iiSsg3nWcVECYUyk"
+          "cachedResultName": "Jobs"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -346,7 +344,6 @@
       "alwaysOutputData": true,
       "credentials": {
         "apifyOAuth2Api": {
-          "id": "hwrvawIhCz4iflM8",
           "name": "Apify account"
         }
       },
@@ -355,7 +352,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE 11: LOG NO RESULTS\n// =====================================================================\n\n// What this node does:\n// When Apify successfully calls a company but finds 0 matching jobs,\n// we still want to track this (so we know the company was checked).\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: $json._context_company_id,\n    company_name: $json._context_company_name,\n    \n    status: 'no_results',  // Indicates API worked but 0 jobs found\n    jobs_found: 0,\n        \n    // Explanation\n    note: 'API succeeded but returned 0 jobs - company not found in Apify or no matching PM roles',\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// Possible reasons for 0 jobs:\n// 1. Company not currently hiring PMs\n// 2. Company name mismatch (\"OpenAI\" vs \"Open AI\" vs \"OpenAI Inc\")\n// 3. Company not in Apify database\n// 4. Our filters too restrictive (title, remote, timeRange)\n// 5. All PM jobs filled/closed recently\n"
+        "jsCode": "// =====================================================================\n// NODE 11: LOG NO RESULTS\n// =====================================================================\n\n// What this node does:\n// When Apify successfully calls a company but finds 0 matching jobs,\n// we still want to track this (so we know the company was checked).\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: $json._context_company_id,\n    company_name: $json._context_company_name,\n    \n    status: 'no_results',  // Indicates API worked but 0 jobs found\n    jobs_found: 0,\n        \n    // Explanation\n    note: 'API succeeded but returned 0 jobs - company not found in Apify or no matching roles',\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// Possible reasons for 0 jobs:\n// 1. Company not currently hiring PMs\n// 2. Company name mismatch (\"OpenAI\" vs \"Open AI\" vs \"OpenAI Inc\")\n// 3. Company not in Apify database\n// 4. Our filters too restrictive (title, remote, timeRange)\n// 5. All PM jobs filled/closed recently\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -385,10 +382,8 @@
       "parameters": {
         "dataTableId": {
           "__rl": true,
-          "value": "e4mOnHpKZpmpIc6l",
           "mode": "list",
-          "cachedResultName": "Errors",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/e4mOnHpKZpmpIc6l"
+          "cachedResultName": "Errors"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -482,9 +477,7 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "wdbaREmYAkpTiKry",
           "mode": "list",
-          "cachedResultUrl": "/workflow/wdbaREmYAkpTiKry",
           "cachedResultName": "Loop_Jobs_v5-1"
         },
         "workflowInputs": {
@@ -680,17 +673,13 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
   "versionId": "a176cafc-2f4f-4119-8d40-b7826b274476",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
-  },
   "id": "F9XFH8EFEqNYstP5",
   "tags": []
 }

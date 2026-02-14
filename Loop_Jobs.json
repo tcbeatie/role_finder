@@ -56,7 +56,6 @@
       "name": "Message a model",
       "credentials": {
         "anthropicApi": {
-          "id": "6qsUxIs7jlIJ6qQ8",
           "name": "Anthropic account"
         }
       },
@@ -132,10 +131,8 @@
       "parameters": {
         "dataTableId": {
           "__rl": true,
-          "value": "8Z8MLvTvK4YX7SuB",
           "mode": "list",
-          "cachedResultName": "Email_Queue",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/8Z8MLvTvK4YX7SuB"
+          "cachedResultName": "Email_Queue"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -360,10 +357,6 @@
     "availableInMCP": false
   },
   "versionId": "49be9a9e-f70c-414a-8bdb-7333100b813e",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
-  },
   "id": "wdbaREmYAkpTiKry",
   "tags": []
 }

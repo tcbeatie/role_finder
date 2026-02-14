@@ -1,5 +1,5 @@
 {
-  "name": "Send_Email_v3-2",
+  "name": "Send_Email_v4-1",
   "nodes": [
     {
       "parameters": {
@@ -8,10 +8,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -256,
+        -672,
         16
       ],
-      "id": "cac28ba3-ea2a-4c12-8488-77dd9520d33a",
+      "id": "1cd3c2f7-02ba-46bc-a611-f6a4d9282b3f",
       "name": "Start",
       "notes": "═════════════════════════\n  NODE 1: WORKFLOW TRIGGER (EMAIL WORKFLOW ENTRY POINT)  ═════════════════════════\n  This is the entry point for the Email workflow.\n\n  What data arrives here:\n  When called from parent workflow, receives:\n\n  - workflow_run_id (CRITICAL):\n    - Parent workflow's execution ID\n    - Example: 67890\n    - Used to query email_queue table\n    - Links to all jobs processed in parent workflow run\n    - This is THE KEY that ties the entire\n      system together\n\n  - companies_processed (optional):\n    - Summary count from parent workflow\n    - Example: 40\n    - For logging/debugging\n    - Not used in email generation\n\n  - query_timestamp (optional):\n    - When parent workflow completed\n    - Example: \"2025-12-29T14:30:00.000Z\"\n    - For audit trail and debugging\n\n  Data flow summary with example:\n\n  Loop Companies starts → execution_id = 67890\n  (becomes workflow_run_id)\n    ↓\n    ├─ Company 1: Anthropic\n    │  └─ Loop Jobs called with\n    │     _context_workflow_run_id = 67890\n    │     ├─ Job 1: Senior PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     ├─ Job 2: Lead PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     └─ Job 8: Principal PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │\n    ├─ Company 2: OpenAI\n    │  └─ Loop Jobs called with\n    │     _context_workflow_run_id = 67890\n    │     ├─ Job 1: Technical PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     └─ Job 5: Staff PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │\n    └─ All companies done (40 total)\n       └─ Workflow Summary node:\n          { workflow_run_id: 67890 }\n          └─ Triggers Send Email workflow\n             (THIS WORKFLOW)\n             ↓\n             Load Email Queue: WHERE\n             workflow_run_id = 67890\n             Result: All 13 jobs (8 from Anthropic\n             + 5 from OpenAI)\n             ↓\n             Aggregate and Sort: Order by\n             overall_score DESC\n             ↓\n             Build Email: Generate HTML with\n             summary stats\n             ↓\n             Send Jobs Email: Gmail delivery →\n             User inbox\n\n  Critical note on workflow_run_id:\n\n  The workflow_run_id is THE MASTER KEY that\n  connects everything:\n\n  1. CREATED BY: Loop Companies workflow (its\n     $execution.id)\n  2. PROPAGATED TO: Every job via\n     _context_workflow_run_id\n  3. STORED IN: email_queue table with every job card\n  4. PASSED TO: This email workflow for querying\n  5. RESULT: Single query retrieves all jobs\n     from entire daily run\n\n  Next node: Load Email Queue"
     },
@@ -20,10 +20,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "value": "8Z8MLvTvK4YX7SuB",
           "mode": "list",
-          "cachedResultName": "Email_Queue",
-          "cachedResultUrl": "/projects/NRVzB7ls7lOjZ60v/datatables/8Z8MLvTvK4YX7SuB"
+          "cachedResultName": "Email_Queue"
         },
         "filters": {
           "conditions": [
@@ -37,10 +35,10 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        -48,
+        -464,
         16
       ],
-      "id": "cdbacd68-445f-4c38-b2d9-55516941308f",
+      "id": "492eedcc-a2ce-4b50-9d50-467857004df0",
       "name": "Load Email Queue",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
@@ -53,12 +51,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        416,
+        0,
         0
       ],
-      "id": "376773a3-a8ff-43b4-9d13-6cb1b10fd4d8",
+      "id": "7f5a860f-247c-4810-9835-c71ca14b2a43",
       "name": "Aggregate and Sort Jobs",
-      "notes": "════════════════════════════════════════════════\n  NODE 3: AGGREGATE AND SORT JOBS\n  Purpose: Organize jobs by score and category\n  for optimal email presentation  ════════════════════════════════════════════════\n  ARCHITECTURAL NOTE:\n  This node transforms the data structure from:\n  - MANY ITEMS (20 individual jobs) → ONE ITEM\n    (aggregated summary)\n  - Individual job cards → Combined HTML string\n  - Raw data → Presentation-ready data\n\n  STEP 1: Get all jobs from database query\n  $input.all() returns array of ALL items from\n  Load Email Queue node\n  Example: 20 items (jobs) from email_queue table\n  Each item: { json: { workflow_run_id,\n  recommendation, overall_score, html_card, ... } }\n\n ════════════════════════════════════════════════\n  CATEGORIZATION\n  Group jobs by AI recommendation for summary statistics\n  ════════════════════════════════════════════════\n\n  EXCELLENT_MATCH: Top-tier jobs - perfect fit\n  across all dimensions\n  Seniority + Domain + Technical Depth +\n  Location + Compensation all high\n  const excellentMatches = allJobs.filter(job =>\n    job.json.recommendation === 'EXCELLENT_MATCH');\n  Example: 3 jobs with scores 9-10\n\n  GOOD_MATCH / STRONG_MATCH: Strong candidates -\n  good fit with minor gaps\n  NOTE: AI prompt uses 'GOOD_MATCH' but checking\n  both for compatibility\n  One or two dimensions slightly lower but overall strong fit\n  const strongMatches = allJobs.filter(job =>\n    job.json.recommendation === 'STRONG_MATCH' ||\n    job.json.recommendation === 'GOOD_MATCH' );\n\n  CONSIDER: Possible matches - worth reviewing despite notable gaps\n  Multiple dimensions are acceptable but not strong\n  User should review carefully before applying\n  const considerJobs = allJobs.filter(job =>\n    job.json.recommendation === 'CONSIDER');\n\n  POOR_FIT: Not recommended - significant mismatches\n  Multiple critical dimensions fail (wrong level, location, domain)\n  Included for completeness but not highlighted  in email\n  const poorFits = allJobs.filter(job =>\n    job.json.recommendation === 'POOR_FIT');\n  ════════════════════════════════════════════════\n  SORTING\n  Primary sort: overall_score descending (best jobs first)\n  ════════════════════════════════════════════════\n\n  Sort by score: highest to lowest\n  This ensures best matches appear at top of email\n  User sees most relevant jobs first without scrolling\n  const sortedJobs = allJobs.sort((a, b) =>\n    b.json.overall_score - a.json.overall_score\n  );\n  Result: Jobs ordered 10 → 9 → 9 → 8 → 8 → 7 →\n  7 → 6 → ...\n  Best matches appear at top of email digest\n  ════════════════════════════════════════════════\n  HTML CARD CONCATENATION\n  Combine individual job cards into single HTML block ready for email\n ════════════════════════════════════════════════\n  const jobCardsHtml = sortedJobs\n    .map(job => job.json.html_card)\n    .join('\\n<div style=\"margin: 20px\n      0;\"></div>\\n');\n\n  WHAT THIS DOES (step by step):\n\n  STEP 1 - .map(job => job.json.html_card):\n  Extract just the HTML card strings from each job object\n  Input: [\n    { json: { html_card: \"<div>Job 1\n      HTML</div>\", ... } },\n    { json: { html_card: \"<div>Job 2\n      HTML</div>\", ... } },\n    ...\n  ]\n  Output: [\n    \"<div>Job 1 HTML</div>\",\n    \"<div>Job 2 HTML</div>\",\n    ...\n  ]\n\n  STEP 2 - .join('\\n<div style=\"margin: 20px\n  0;\"></div>\\n'):\n  Concatenate all HTML cards with visual spacer between each\n  The spacer creates 20px vertical space between cards\n  \\n adds newlines for readable HTML source (not visible to user)\n\n  Output (conceptual):\n  \"<div>Job 1 HTML</div>\n   <div style=\"margin: 20px 0;\"></div>\n   <div>Job 2 HTML</div>\n   <div style=\"margin: 20px 0;\"></div>\n   <div>Job 3 HTML</div>\n   ...\"\n\n  Result: Single string with all job cards and visual spacing\n  Size: ~40-100KB for 20 jobs (2-5KB per card)\n════════════════════════════════════════════════\n  OUTPUT STRUCTURE\n  Create single aggregated object with statistics and combined HTML\n ════════════════════════════════════════════════\n  return [{\n    json: {\n      // === SUMMARY COUNTS ===\n      // These drive the email header statistics\n      // and dynamic subject line\n      total_jobs: allJobs.length,  // 20 - Total\n        jobs in digest\n      excellent_count: excellentMatches.length,\n        // 3 - Best matches\n      strong_count: strongMatches.length,  // 8 -\n        Good matches\n      consider_count: considerJobs.length,  // 6\n        - Review carefully\n      poor_count: poorFits.length,  // 3 - Not\n        recommended\n\n      // === COMPLETE HTML CONTENT ===\n      // All job cards concatenated with spacers,\n      // sorted by score\n      job_cards_html: jobCardsHtml,\n      // Size: ~40-100KB for 20 jobs\n      // Contains: Complete, formatted HTML ready\n      // to insert into email body\n\n      // === WORKFLOW TRACKING ===\n      // Preserve workflow_run_id for email\n      // footer and debugging\n      workflow_run_id:\n        allJobs[0].json.workflow_run_id\n      // Safe to access [0] because we know we\n      // have jobs from query\n      // All jobs have same workflow_run_id anyway\n    }\n  }];\n\n  WHAT GETS OUTPUT:\n  Single item (not 20) with aggregated data:\n  {\n    total_jobs: 20,\n    excellent_count: 3,\n    strong_count: 8,\n    consider_count: 6,\n    poor_count: 3,\n    job_cards_html: \"<div>...</div><spacer>\n      <div>...</div>...\",\n    workflow_run_id: 67890\n  }\n\n  EXAMPLE EMAIL SUBJECT LINE (next node\n  generates):\n  \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\"\n  These numbers come from: excellent_count,\n  strong_count, total_jobs\n\n  EXAMPLE EMAIL BODY STRUCTURE (next node\n  generates):\n  [Header with date and branding]\n  [Summary statistics: 3 excellent, 8 strong, 6\n  consider, 20 total]\n  [Highlight banner if excellent_count > 0]\n  [Job card 1 - score 10] ← Best match first\n  <spacer>\n  [Job card 2 - score 9]\n  <spacer>\n  [Job card 3 - score 9]\n  ...\n  [Job card 20 - score 4] ← Lowest match last\n  [Footer with workflow_run_id]\n\n  PERFORMANCE NOTES:\n  - Array operations (filter, sort, map) are fast for <1000 items\n  - Typical: 20-200 jobs, completes in <10ms\n  - String concatenation with join() is efficient\n  - No database queries, all in-memory processing\n\n  Next node: Build Email"
+      "notes": "════════════════════════════════════════════════\n  NODE: AGGREGATE AND SORT JOBS\n════════════════════════════════════════════════\n  Reduces N job items → 1 aggregated summary item.\n\n  Input:  N items from Load Email Queue\n  Output: 1 item with category counts + sorted HTML\n\n  Transformations:\n    - Count jobs by category: excellent / strong /\n      consider / poor\n    - Sort all jobs by overall_score descending\n    - Concatenate html_card fields with spacer divs\n\n  See jsCode for full implementation.\n\n  Next node: Build Email"
     },
     {
       "parameters": {
@@ -67,10 +65,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        624,
+        208,
         0
       ],
-      "id": "6000bb04-a673-4953-b2d7-2d66708a2956",
+      "id": "43a33883-a0b8-43d9-a940-c7b3b91024e9",
       "name": "Build Email",
       "notes": "════════════════════════════════════════════════\n  NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)  ════════════════════════════════════════════════\n  Purpose: Create professional, responsive HTML email with job digest\n  Input: Single aggregated item with statistics and combined HTML\n  Output: Complete email with dynamic subject line and formatted HTML body\n\n  Key features:\n  - Dynamic subject line based on job quality\n  - Professional HTML email template\n  - Responsive design for mobile/desktop\n  - Color-coded statistics (green/blue/amber/gray)\n  - Conditional content (highlight for excellent matches)\n  - Email client compatible (inline styles)\n\n  Next node: Send Jobs Email\n"
     },
@@ -85,16 +83,15 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        832,
+        416,
         0
       ],
-      "id": "3e012bd3-acbf-4778-8e40-c5a9798defd4",
+      "id": "a793e8c6-4607-4500-8a90-78c03316463c",
       "name": "Send email",
       "webhookId": "186d3b95-4b94-4e2a-a814-0c21e5affdc1",
       "credentials": {
         "smtp": {
-          "id": "KpZ7xpXU5PRtbLmE",
-          "name": "Dreamhost SMTP"
+          "name": "SMTP"
         }
       },
       "notes": "=═══════════════════════════════════\n  NODE 5: SEND EMAIL (SMTP DELIVERY)\n  Purpose: Deliver formatted HTML email digest\n  to recipient\n════════════════════════════════════\n\n  SMTP Configuration:\n  - From: \"[Email Name <email@address>]\"\n  - To: Dynamic from Start node (see below)\n  - Subject: {{ $json.subject }} (from Build Email)\n  - Body: {{ $json.html_body }} (formatted HTML)\n\n  CRITICAL: Recipient Address Uses [1] Index\n\n  {{ $('Start').all()[1].json.full_name + ' <' +\n     $('Start').all()[1].json.email + '>' }}\n\n  Parent workflow passes TWO items to Start node:\n  - Item [0]: Workflow summary (workflow_run_id,\n    companies_processed)\n  - Item [1]: User configuration (full_name,\n    email, preferences)\n\n  This node accesses Item [1] for recipient info."
@@ -127,25 +124,27 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        160,
+        -256,
         16
       ],
-      "id": "1594cd6f-cdc8-4cf3-a537-d6b00d4313e1",
+      "id": "b921b263-193f-4f26-b5b5-6bc7fb46e2c0",
       "name": "If",
-      "alwaysOutputData": false
+      "alwaysOutputData": false,
+      "notes": "════════════════════════════════════════════════\n  NODE: IF — WORKFLOW_RUN_ID GUARD\n════════════════════════════════════════════════\n  Purpose: Gate execution on a valid workflow_run_id.\n  Prevents email generation when no run ID is available.\n\n  Condition:\n    workflow_run_id EXISTS (string, not null/empty)\n\n  True  → output[0] → Aggregate and Sort Jobs\n    workflow_run_id is present; proceed with email\n\n  False → output[1] → Empty Response\n    workflow_run_id is missing; return skip status\n    to parent workflow\n\n  When workflow_run_id may be absent:\n    - Workflow triggered manually without input\n    - Parent workflow failed before passing run ID\n    - Development or test invocations\n\n  alwaysOutputData: false\n    Only one branch fires per execution.\n\n  Next nodes:\n    True  → Aggregate and Sort Jobs\n    False → Empty Response"
     },
     {
       "parameters": {
-        "jsCode": "// ====================================================================\n// FORMAT SUCCESS RESPONSE\n// ====================================================================\n// Purpose: Transform SMTP output into consistent status object\n// Returns to parent workflow with structured status information\n\n// Get the email metadata from Build Email node\nconst emailData = $('Build Email').first().json;\n\n// SMTP node output is in current item (has connection info)\nconst smtpResult = $input.first().json;\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'success',\n    email_sent: true,\n\n    // === EMAIL STATISTICS ===\n    total_jobs: emailData.total_jobs,\n    excellent_count: emailData.excellent_count,\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: emailData.workflow_run_id,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString(),\n\n    // === SMTP DETAILS (optional, for debugging) ===\n    message_id: smtpResult.messageId || null\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// {\n//   status: 'success',\n//   email_sent: true,\n//   total_jobs: 20,\n//   excellent_count: 3,\n//   workflow_run_id: 67890,\n//   timestamp: '2025-12-29T14:30:00.000Z',\n//   message_id: '<abc123@mail.gmail.com>'\n// }"
+        "jsCode": "// ====================================================================\n// FORMAT SUCCESS RESPONSE\n// ====================================================================\n// Purpose: Transform SMTP output into consistent status object\n// Returns to parent workflow with structured status information\n\n// Get the email metadata from Build Email node\nconst emailData = $('Build Email').first().json;\n\n// Get category counts from Aggregate and Sort Jobs\n// (Build Email only forwards total_jobs and excellent_count)\nconst aggData = $('Aggregate and Sort Jobs').first().json;\n\n// SMTP node output is in current item (has connection info)\nconst smtpResult = $input.first().json;\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'success',\n    email_sent: true,\n\n    // === EMAIL STATISTICS ===\n    total_jobs: emailData.total_jobs,\n    excellent_count: emailData.excellent_count,\n    strong_count: aggData.strong_count,       // ← added\n    consider_count: aggData.consider_count,   // ← added\n    poor_count: aggData.poor_count,           // ← added\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: emailData.workflow_run_id,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString(),\n\n    // === SMTP DETAILS (optional, for debugging) ===\n    message_id: smtpResult.messageId || null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
+        624,
         0
       ],
-      "id": "762bab1f-17a3-4309-b394-d27aca0bf71d",
-      "name": "Success Response"
+      "id": "33d190de-fda6-4b79-a97b-7b36e57a03a2",
+      "name": "Success Response",
+      "notes": "════════════════════════════════════════════════\n  NODE: SUCCESS RESPONSE\n════════════════════════════════════════════════\n  Builds a structured status object after email\n  delivery and returns it to the parent workflow.\n\n  Input:  SMTP send result + Build Email metadata\n  Output: Unified status with email stats\n\n  See jsCode for output schema.\n"
     },
     {
       "parameters": {
@@ -154,11 +153,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        416,
+        0,
         176
       ],
-      "id": "18a3f0b5-764f-442f-8587-83dda064a005",
-      "name": "Empty Response"
+      "id": "6b8e4594-328c-4873-964d-8de99345e86a",
+      "name": "Empty Response",
+      "notes": "════════════════════════════════════════════════\n  NODE: EMPTY RESPONSE\n════════════════════════════════════════════════\n  Returns a skip status when workflow_run_id is\n  absent. Allows the parent workflow to continue\n  without sending an email.\n\n  Input:  Item from If node false branch\n  Output: Structured skip status\n\n  See jsCode for output schema.\n"
     }
   ],
   "pinData": {},
@@ -237,17 +237,13 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "cbd7cae1-15ac-43a0-81ed-bb2e1210921d",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "b50b11e8b95a97f785a59928b1142bfe5660398bf6359dbc9cca38ca2424c956"
-  },
-  "id": "4HN9xUQOx8f5tcQs",
+  "versionId": "0fdefc75-828c-476f-a4db-ea7e4cd68ef5",
+  "id": "LKVeUWMswVvDabFDRHVyZ",
   "tags": []
 }

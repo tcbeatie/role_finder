@@ -1,6 +1,41 @@
 # RoleFinder Release Notes
 
-## Latest Release: v0.5.1
+## Latest Release: v0.6.0
+
+**Release Date:** February 12, 2026
+**Branch:** `37-add-main-summary-report`
+**Status:** Production-Ready
+
+### Overview
+
+Version 0.6.0 adds a post-run summary dashboard: after all profiles are processed each day, Main sends an admin email with grand totals across all profiles and persists a per-profile stats row to a new `run_reports` table. Send Email now returns full category counts to the parent, making historical run data complete and queryable.
+
+### Key Changes
+
+#### Main v6.1 (13 nodes, was 8)
+
+Five new nodes added to the done-branch and per-profile completion path:
+
+- ✅ **Set Start Time** — records per-profile iteration start timestamp; fan-out hub to three downstream nodes
+- ✅ **Build Run Report** — assembles one stats row per profile from Send Email's return value and the start timestamp (computes `run_duration_ms`)
+- ✅ **Save Run Report** — persists the row to the `run_reports` data table and triggers the next Loop Over Profiles iteration
+- ✅ **Build Summary Email** — fires once after all profiles complete (done branch); aggregates grand totals across all profiles and renders an HTML admin digest with per-profile table, five stat cards, and run duration
+- ✅ **Send an Email** — delivers the admin summary via SMTP
+
+#### Send Email v4.1 (8 nodes, unchanged count)
+
+- ✅ **Full category counts** — `Success Response` now returns `strong_count`, `consider_count`, and `poor_count` in addition to `total_jobs` and `excellent_count`; `Empty Response` (skip path) returns zeros for all five fields
+- These counts flow to `Build Run Report` in Main, populating all columns in `run_reports`
+
+#### New: `run_reports` data table
+
+- ✅ Schema template at `tables/template_run_reports.csv`
+- Columns: `main_execution_id`, `profile_id`, `full_name`, `status`, `email_sent`, `total_jobs`, `excellent_count`, `strong_count`, `consider_count`, `poor_count`, `workflow_run_id`, `message_id`, `run_duration_ms`, `completed_at`
+- One row per profile per daily run; `main_execution_id` links rows from the same orchestrator execution
+
+---
+
+## Previous Release: v0.5.1
 
 **Release Date:** February 9, 2026
 **Status:** Production-Ready
@@ -130,6 +165,26 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Version History
 
+### v0.6.0 (2026-02-12)
+
+**Added:**
+- `run_reports` data table for per-profile run history (schema: `tables/template_run_reports.csv`)
+- `Set Start Time` node in Main — per-profile start timestamp and fan-out hub
+- `Build Run Report` node in Main — assembles stats row from Send Email return + start timestamp
+- `Save Run Report` node in Main — persists row to `run_reports`, advances loop
+- `Build Summary Email` node in Main — post-loop admin HTML digest with grand totals across all profiles
+- `Send an Email` node in Main — SMTP delivery of admin summary
+
+**Changed:**
+- Main.json: Upgraded from v5-1 to v6-1 (8 → 13 nodes)
+- Send_Email.json: Upgraded from v3.2 to v4.1 (8 nodes; node count unchanged)
+- `Success Response` in Send Email now returns `strong_count`, `consider_count`, `poor_count`
+- `Empty Response` in Send Email now returns zeros for all five category count fields
+- README.md: Updated all version references, architecture diagram, node counts, database tables list, status response schemas, documentation section, and project status
+
+**Fixed:**
+- `strong_count`, `consider_count`, `poor_count` previously missing from Send Email's return value, leaving them unavailable to parent workflow for reporting
+
 ### v0.5.1 (2026-02-09)
 
 **Added:**
@@ -206,14 +261,15 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Roadmap
 
-### v0.6.0 (Planned)
+### v0.7.0 (Planned)
+- Audit and fix match category counts (issue #42): STRONG_MATCH dead branch, REJECT uncounted, hardcoded zeros in Save Run Report
 - Externalize remaining Apify filters (`timeRange`, `locationSearch`, `aiWorkArrangementFilter`)
 - Comprehensive error handling (try/catch in all Code nodes)
 - Retry logic for API failures
 - Error notification system
 - Multi-user production deployment hardening
 
-### v0.7.0 (Planned)
+### v0.8.0 (Planned)
 - Profile management UI/API
 - Historical job tracking and deduplication
 - Advanced filtering and scoring customization
