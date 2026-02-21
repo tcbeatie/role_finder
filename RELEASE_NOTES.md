@@ -1,9 +1,9 @@
 # RoleFinder Release Notes
 
-## Latest Release: v0.6.0
+## Latest Release: v1.0.0
 
-**Release Date:** February 12, 2026
-**Branch:** `37-add-main-summary-report`
+**Release Date:** February 20, 2026
+**Branch:** `main`
 **Status:** Production-Ready
 
 ### Overview
@@ -165,7 +165,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Version History
 
-### v0.6.0 (2026-02-12)
+### v1.0.0 (2026-02-20)
 
 **Added:**
 - `run_reports` data table for per-profile run history (schema: `tables/template_run_reports.csv`)
@@ -261,7 +261,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Roadmap
 
-### v0.7.0 (Planned)
+### v1.0.1 (Planned)
 - Audit and fix match category counts (issue #42): STRONG_MATCH dead branch, REJECT uncounted, hardcoded zeros in Save Run Report
 - Externalize remaining Apify filters (`timeRange`, `locationSearch`, `aiWorkArrangementFilter`)
 - Comprehensive error handling (try/catch in all Code nodes)
@@ -269,7 +269,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - Error notification system
 - Multi-user production deployment hardening
 
-### v0.8.0 (Planned)
+### v2.0.0 (Planned)
 - Profile management UI/API
 - Historical job tracking and deduplication
 - Advanced filtering and scoring customization
@@ -280,7 +280,6 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 ## Support
 
 For issues or questions:
-- Review `WORKFLOW_DOCUMENTATION_README.md` for troubleshooting
 - Check workflow execution logs in n8n UI
 - Query `errors` table for logged failures
 - Refer to `TODO.md` for planned enhancements

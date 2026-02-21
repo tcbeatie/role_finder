@@ -79,7 +79,7 @@ All three should read from `_context_target_criteria.apify_filters` exactly as `
 
 **Why**: Per-user location/arrangement/timeframe filters without workflow edits; required for proper multi-user support
 **Estimated effort**: 1-2 hours
-**Tracking**: Deferred from v0.5.0 → v0.6.0 → now targeting v0.7.0
+**Tracking**: Deferred from v0.5.0 → v0.6.0 → v1.0.0 → now targeting v1.0.1
 
 ---
 
@@ -462,7 +462,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [x] Loop Over Profiles in Main v6.1 — sequential, isolated processing
 - [x] Per-profile email digest delivery
 - [x] Per-profile run stats in `run_reports`
-- [ ] **Production hardening** — test with 3+ active profiles end-to-end (planned v0.7.0)
+- [ ] **Production hardening** — test with 3+ active profiles end-to-end (planned v1.0.1)
 - [ ] **Web interface for configuration** (future)
   - Update profile without editing database directly
   - Manage company list via UI
@@ -501,7 +501,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 
 ## 📊 Priority Matrix
 
-### Do First (v0.7.0 target)
+### Do First (v1.0.1 target)
 1. **Fix match category count bugs** (issue #42) — correctness bug in run_reports data
 2. **Create `run_reports` table** (5a) — required for Main v6.1 Save Run Report node
 3. **Externalize remaining Apify filters** (3b) — timeRange, locationSearch, aiWorkArrangementFilter
@@ -634,4 +634,4 @@ Most high-risk changes (self-hosting, batching) are optional optimizations. Core
 
 ---
 
-*Last Updated: February 13, 2026 (post v0.6.0 merge)*
+*Last Updated: February 20, 2026 (promoted v0.6.0-rc1 → v1.0.0)*
