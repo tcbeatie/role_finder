@@ -1,5 +1,5 @@
 {
-  "name": "Send_Email_v4-1",
+  "name": "Send_Email_v5-1",
   "nodes": [
     {
       "parameters": {
@@ -11,7 +11,7 @@
         -672,
         16
       ],
-      "id": "1cd3c2f7-02ba-46bc-a611-f6a4d9282b3f",
+      "id": "c0d5e3f9-a2dd-4228-87a7-17d569ae6736",
       "name": "Start",
       "notes": "═════════════════════════\n  NODE 1: WORKFLOW TRIGGER (EMAIL WORKFLOW ENTRY POINT)  ═════════════════════════\n  This is the entry point for the Email workflow.\n\n  What data arrives here:\n  When called from parent workflow, receives:\n\n  - workflow_run_id (CRITICAL):\n    - Parent workflow's execution ID\n    - Example: 67890\n    - Used to query email_queue table\n    - Links to all jobs processed in parent workflow run\n    - This is THE KEY that ties the entire\n      system together\n\n  - companies_processed (optional):\n    - Summary count from parent workflow\n    - Example: 40\n    - For logging/debugging\n    - Not used in email generation\n\n  - query_timestamp (optional):\n    - When parent workflow completed\n    - Example: \"2025-12-29T14:30:00.000Z\"\n    - For audit trail and debugging\n\n  Data flow summary with example:\n\n  Loop Companies starts → execution_id = 67890\n  (becomes workflow_run_id)\n    ↓\n    ├─ Company 1: Anthropic\n    │  └─ Loop Jobs called with\n    │     _context_workflow_run_id = 67890\n    │     ├─ Job 1: Senior PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     ├─ Job 2: Lead PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     └─ Job 8: Principal PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │\n    ├─ Company 2: OpenAI\n    │  └─ Loop Jobs called with\n    │     _context_workflow_run_id = 67890\n    │     ├─ Job 1: Technical PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │     └─ Job 5: Staff PM → AI eval →\n    │        email_queue (workflow_run_id: 67890)\n    │\n    └─ All companies done (40 total)\n       └─ Workflow Summary node:\n          { workflow_run_id: 67890 }\n          └─ Triggers Send Email workflow\n             (THIS WORKFLOW)\n             ↓\n             Load Email Queue: WHERE\n             workflow_run_id = 67890\n             Result: All 13 jobs (8 from Anthropic\n             + 5 from OpenAI)\n             ↓\n             Aggregate and Sort: Order by\n             overall_score DESC\n             ↓\n             Build Email: Generate HTML with\n             summary stats\n             ↓\n             Send Jobs Email: Gmail delivery →\n             User inbox\n\n  Critical note on workflow_run_id:\n\n  The workflow_run_id is THE MASTER KEY that\n  connects everything:\n\n  1. CREATED BY: Loop Companies workflow (its\n     $execution.id)\n  2. PROPAGATED TO: Every job via\n     _context_workflow_run_id\n  3. STORED IN: email_queue table with every job card\n  4. PASSED TO: This email workflow for querying\n  5. RESULT: Single query retrieves all jobs\n     from entire daily run\n\n  Next node: Load Email Queue"
     },
@@ -38,7 +38,7 @@
         -464,
         16
       ],
-      "id": "492eedcc-a2ce-4b50-9d50-467857004df0",
+      "id": "550240cc-39bd-4166-b10b-66f106e1a359",
       "name": "Load Email Queue",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
@@ -54,47 +54,37 @@
         0,
         0
       ],
-      "id": "7f5a860f-247c-4810-9835-c71ca14b2a43",
+      "id": "2a962b54-aede-43d7-98f9-c0cbe0744906",
       "name": "Aggregate and Sort Jobs",
       "notes": "════════════════════════════════════════════════\n  NODE: AGGREGATE AND SORT JOBS\n════════════════════════════════════════════════\n  Reduces N job items → 1 aggregated summary item.\n\n  Input:  N items from Load Email Queue\n  Output: 1 item with category counts + sorted HTML\n\n  Transformations:\n    - Count jobs by category: excellent / strong /\n      consider / poor\n    - Sort all jobs by overall_score descending\n    - Concatenate html_card fields with spacer divs\n\n  See jsCode for full implementation.\n\n  Next node: Build Email"
     },
     {
       "parameters": {
-        "jsCode": "// ====================================================================\n// NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)\n// ====================================================================\n\n// STEP 1: Get aggregated data from previous node\n// Previous node consolidated 20 jobs into single item with statistics\nconst data = $input.first().json;\n// .first() gets the single aggregated item\n// .json extracts the data object\n\n// STEP 2: Destructure all the statistics and content\nconst {\n  total_jobs,           // 20 - Total jobs in this digest\n  excellent_count,      // 3 - Excellent matches\n  strong_count,         // 8 - Good/Strong matches\n  consider_count,       // 6 - Consider reviewing\n  poor_count,          // 3 - Poor fits\n  job_cards_html,      // Combined HTML of all job cards\n  workflow_run_id      // 67890 - Workflow tracking ID\n} = data;\n\n// ====================================================================\n// DYNAMIC SUBJECT LINE GENERATION\n// ====================================================================\n\n// Build subject line parts dynamically\nlet subjectParts = [];\n\n// Prioritize excellent matches\nif (excellent_count > 0) {\n  subjectParts.push(`${excellent_count} Excellent Match${excellent_count !== 1 ? 'es' : ''}`);\n}\n\n// Add strong matches if present\nif (strong_count > 0) {\n  subjectParts.push(`${strong_count} Strong`);\n}\n\n// Only mention \"consider\" if no excellent or strong matches\nif (consider_count > 0 && excellent_count === 0 && strong_count === 0) {\n  subjectParts.push(`${consider_count} to Consider`);\n}\n\n// Assemble final subject line\nconst subject = subjectParts.length > 0\n  ? `🎯 ${subjectParts.join(', ')} • ${total_jobs} Total Jobs`\n  : `📊 ${total_jobs} New Job${total_jobs !== 1 ? 's' : ''} to Review`;\n\n// Example subject lines:\n// - \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\" (good day)\n// - \"🎯 2 Excellent Matches • 5 Total Jobs\" (fewer jobs, high quality)\n// - \"📊 3 New Jobs to Review\" (no excellent/strong matches)\n\n// ====================================================================\n// DATE FORMATTING\n// ====================================================================\n\nconst today = new Date();\nconst formattedDate = today.toLocaleDateString('en-US', { \n  weekday: 'long',      // \"Monday\"\n  year: 'numeric',      // \"2025\"\n  month: 'long',        // \"December\"\n  day: 'numeric'        // \"29\"\n});\n// Result: \"Monday, December 29, 2025\"\n\n// ====================================================================\n// HTML EMAIL TEMPLATE\n// ====================================================================\n\nconst emailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Daily Job Digest</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">\n  \n  <!-- Email Container: 700px max width for readability -->\n  <div style=\"max-width: 700px; margin: 0 auto; padding: 20px;\">\n    \n    <!-- ================================================ -->\n    <!-- EMAIL HEADER -->\n    <!-- Purple gradient banner with title and date -->\n    <!-- ================================================ -->\n    <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; margin-bottom: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n      <h1 style=\"margin: 0 0 8px 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;\">\n        🎯 Your Daily Job Digest\n      </h1>\n      <p style=\"margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;\">\n        ${formattedDate}\n      </p>\n    </div>\n    \n    <!-- ================================================ -->\n    <!-- SUMMARY STATISTICS CARD -->\n    <!-- Four-column grid showing job counts by category -->\n    <!-- ================================================ -->\n    <div style=\"background: #ffffff; padding: 24px; border-radius: 0 0 12px 12px; margin-bottom: 24px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n      \n      <!-- Four-column responsive grid -->\n      <div style=\"display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: center;\">\n        \n        <!-- EXCELLENT MATCHES - Green theme -->\n        <div style=\"padding: 16px 8px; background: ${excellent_count > 0 ? '#f0fdf4' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${excellent_count > 0 ? '#10b981' : '#e5e7eb'};\">\n          <div style=\"color: #10b981; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${excellent_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Excellent\n          </div>\n        </div>\n        \n        <!-- STRONG MATCHES - Blue theme -->\n        <div style=\"padding: 16px 8px; background: ${strong_count > 0 ? '#eff6ff' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${strong_count > 0 ? '#3b82f6' : '#e5e7eb'};\">\n          <div style=\"color: #3b82f6; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${strong_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Strong\n          </div>\n        </div>\n        \n        <!-- CONSIDER MATCHES - Amber theme -->\n        <div style=\"padding: 16px 8px; background: ${consider_count > 0 ? '#fffbeb' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${consider_count > 0 ? '#f59e0b' : '#e5e7eb'};\">\n          <div style=\"color: #f59e0b; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${consider_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Consider\n          </div>\n        </div>\n        \n        <!-- TOTAL JOBS - Gray theme -->\n        <div style=\"padding: 16px 8px; background: #f9fafb; border-radius: 8px; border: 2px solid #d1d5db;\">\n          <div style=\"color: #374151; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${total_jobs}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Total\n          </div>\n        </div>\n        \n      </div>\n      \n      <!-- Conditional highlight banner for excellent matches -->\n      ${excellent_count > 0 ? `\n      <div style=\"margin-top: 16px; padding: 12px; background: #ecfdf5; border-left: 4px solid #10b981; border-radius: 4px;\">\n        <p style=\"margin: 0; color: #065f46; font-size: 13px; font-weight: 600;\">\n          ⚡ You have ${excellent_count} excellent match${excellent_count !== 1 ? 'es' : ''} today!\n        </p>\n      </div>\n      ` : ''}\n      \n    </div>\n    \n    <!-- ================================================ -->\n    <!-- JOB CARDS SECTION -->\n    <!-- All formatted job cards inserted here -->\n    <!-- ================================================ -->\n    <div style=\"margin-bottom: 24px;\">\n      ${job_cards_html}\n    </div>\n    \n    <!-- ================================================ -->\n    <!-- EMAIL FOOTER -->\n    <!-- System information and workflow tracking -->\n    <!-- ================================================ -->\n    <div style=\"background: #ffffff; padding: 20px; border-radius: 8px; text-align: center; font-size: 13px; color: #6b7280; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);\">\n      <p style=\"margin: 0 0 8px 0; font-weight: 600; color: #374151;\">\n        📬 Automated Job Monitoring System\n      </p>\n      <p style=\"margin: 0 0 4px 0;\">\n        Workflow Run ID: <code style=\"background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-family: monospace;\">#${workflow_run_id}</code>\n      </p>\n      <p style=\"margin: 0; font-size: 12px;\">\n        Questions? Reply to this email or check your workflow logs.\n      </p>\n    </div>\n    \n    <!-- Spacer for email clients -->\n    <div style=\"height: 40px;\"></div>\n    \n  </div>\n  \n</body>\n</html>\n`;\n\n// ====================================================================\n// EMAIL DESIGN PRINCIPLES\n// ====================================================================\n\n// 1. INLINE STYLES:\n// - Email clients strip <style> tags and external CSS\n// - All styling must be inline style=\"...\" attributes\n// - Verbose but necessary for email compatibility\n\n// 2. TABLE-FREE LAYOUT:\n// - Modern approach using divs with inline-block\n// - Grid layout for statistics (fallback to stacked on mobile)\n// - More maintainable than traditional table-based email layouts\n\n// 3. COLOR CODING:\n// - Green: Excellent matches (positive, go)\n// - Blue: Strong matches (confident, professional)\n// - Amber: Consider (caution, review needed)\n// - Gray: Neutral statistics\n\n// 4. PROGRESSIVE ENHANCEMENT:\n// - Base layout works in all email clients\n// - Enhanced features (gradients, shadows) degrade gracefully\n// - Text remains readable even if styling breaks\n\n// 5. MOBILE RESPONSIVE:\n// - 700px max width for desktop readability\n// - Grid columns stack on narrow screens\n// - Touch-friendly sizing (minimum 44px tap targets)\n\n// ====================================================================\n// CONDITIONAL CONTENT\n// ====================================================================\n\n// Excellent matches highlight:\n// ${excellent_count > 0 ? `...` : ''}\n// - Only shows if there are excellent matches\n// - Creates excitement and urgency\n// - Empty string if no excellent matches\n\n// Category styling:\n// background: ${excellent_count > 0 ? '#f0fdf4' : '#f9fafb'}\n// - Active: Colored background (light green)\n// - Inactive: Gray background\n// - Visual feedback on which categories have jobs\n\n// ====================================================================\n// OUTPUT STRUCTURE\n// ====================================================================\n\nreturn [{\n  json: {\n    // === EMAIL METADATA ===\n    subject: subject,\n    // \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\"\n    \n    html_body: emailHtml,\n    // Complete HTML email (10-20KB typical)\n    \n    // === SUMMARY STATISTICS (for logging) ===\n    total_jobs: total_jobs,\n    excellent_count: excellent_count,\n    \n    // === WORKFLOW TRACKING ===\n    workflow_run_id: workflow_run_id,\n    \n    // === TIMESTAMP ===\n    generated_at: new Date().toISOString()\n    // When email was generated (for debugging)\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// Single item with complete email ready to send:\n// {\n//   subject: \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\",\n//   html_body: \"<!DOCTYPE html><html>...\",\n//   total_jobs: 20,\n//   excellent_count: 3,\n//   workflow_run_id: 67890,\n//   generated_at: \"2025-12-29T14:30:00.000Z\"\n// }\n"
+        "jsCode": "// ====================================================================\n// FORMAT SUCCESS RESPONSE\n// ====================================================================\n// Purpose: Transform SMTP output into consistent status object\n// Returns to parent workflow with structured status information\n\n// Get the email metadata from Build Email node\nconst emailData = $('Build Match Email').first().json;\n\n// Get category counts from Aggregate and Sort Jobs\n// (Build Email only forwards total_jobs and excellent_count)\nconst aggData = $('Aggregate and Sort Jobs').first().json;\n\n// SMTP node output is in current item (has connection info)\nconst smtpResult = $input.first().json;\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'success',\n    email_sent: true,\n\n    // === EMAIL STATISTICS ===\n    total_jobs: emailData.total_jobs,\n    excellent_count: emailData.excellent_count,\n    strong_count: aggData.strong_count,       // ← added\n    consider_count: aggData.consider_count,   // ← added\n    poor_count: aggData.poor_count,           // ← added\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: emailData.workflow_run_id,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString(),\n\n    // === SMTP DETAILS (optional, for debugging) ===\n    message_id: smtpResult.messageId || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "731bb365-f1fd-4b91-8f47-5ec803ff7570",
+      "name": "Success Response",
+      "notes": "════════════════════════════════════════════════\n  NODE: SUCCESS RESPONSE\n════════════════════════════════════════════════\n  Builds a structured status object after email\n  delivery and returns it to the parent workflow.\n\n  Input:  SMTP send result + Build Email metadata\n  Output: Unified status with email stats\n\n  See jsCode for output schema.\n"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================================================\n// RETURN SKIP STATUS\n// ====================================================================\n// Purpose: Provide explicit status when workflow_run_id doesn't exist\n// Ensures parent workflow loop continues even when no jobs to process\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'skipped',\n    reason: 'no_workflow_run_id',\n    email_sent: false,\n\n    // === EMPTY STATISTICS ===\n    total_jobs: 0,\n    excellent_count: 0,\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: $json.workflow_run_id || null,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString()\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// {\n//   status: 'skipped',\n//   reason: 'no_workflow_run_id',\n//   email_sent: false,\n//   total_jobs: 0,\n//   excellent_count: 0,\n//   workflow_run_id: null,\n//   timestamp: '2025-12-29T14:30:00.000Z'\n// }"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         208,
-        0
+        352
       ],
-      "id": "43a33883-a0b8-43d9-a940-c7b3b91024e9",
-      "name": "Build Email",
-      "notes": "════════════════════════════════════════════════\n  NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)  ════════════════════════════════════════════════\n  Purpose: Create professional, responsive HTML email with job digest\n  Input: Single aggregated item with statistics and combined HTML\n  Output: Complete email with dynamic subject line and formatted HTML body\n\n  Key features:\n  - Dynamic subject line based on job quality\n  - Professional HTML email template\n  - Responsive design for mobile/desktop\n  - Color-coded statistics (green/blue/amber/gray)\n  - Conditional content (highlight for excellent matches)\n  - Email client compatible (inline styles)\n\n  Next node: Send Jobs Email\n"
-    },
-    {
-      "parameters": {
-        "fromEmail": "RoleFinder Jobs <sender@example.com>",
-        "toEmail": "={{ $('Start').all()[1].json.full_name + ' <' + $('Start').all()[1].json.email + '>' }}",
-        "subject": "={{ $json.subject }}",
-        "html": "={{ $json.html_body }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        416,
-        0
-      ],
-      "id": "a793e8c6-4607-4500-8a90-78c03316463c",
-      "name": "Send email",
-      "webhookId": "186d3b95-4b94-4e2a-a814-0c21e5affdc1",
-      "credentials": {
-        "smtp": {
-          "name": "SMTP"
-        }
-      },
-      "notes": "=═══════════════════════════════════\n  NODE 5: SEND EMAIL (SMTP DELIVERY)\n  Purpose: Deliver formatted HTML email digest\n  to recipient\n════════════════════════════════════\n\n  SMTP Configuration:\n  - From: \"[Email Name <email@address>]\"\n  - To: Dynamic from Start node (see below)\n  - Subject: {{ $json.subject }} (from Build Email)\n  - Body: {{ $json.html_body }} (formatted HTML)\n\n  CRITICAL: Recipient Address Uses [1] Index\n\n  {{ $('Start').all()[1].json.full_name + ' <' +\n     $('Start').all()[1].json.email + '>' }}\n\n  Parent workflow passes TWO items to Start node:\n  - Item [0]: Workflow summary (workflow_run_id,\n    companies_processed)\n  - Item [1]: User configuration (full_name,\n    email, preferences)\n\n  This node accesses Item [1] for recipient info."
+      "id": "45fd7b61-cd19-46a3-8286-a7f1696bb3de",
+      "name": "Empty Response",
+      "notes": "════════════════════════════════════════════════\n  NODE: EMPTY RESPONSE\n════════════════════════════════════════════════\n  Returns a skip status when workflow_run_id is\n  absent. Allows the parent workflow to continue\n  without sending an email.\n\n  Input:  Item from If node false branch\n  Output: Structured skip status\n\n  See jsCode for output schema.\n"
     },
     {
       "parameters": {
@@ -127,38 +117,134 @@
         -256,
         16
       ],
-      "id": "b921b263-193f-4f26-b5b5-6bc7fb46e2c0",
-      "name": "If",
+      "id": "4792dd18-049d-4fed-b966-be56eac99abf",
+      "name": "If matches",
       "alwaysOutputData": false,
       "notes": "════════════════════════════════════════════════\n  NODE: IF — WORKFLOW_RUN_ID GUARD\n════════════════════════════════════════════════\n  Purpose: Gate execution on a valid workflow_run_id.\n  Prevents email generation when no run ID is available.\n\n  Condition:\n    workflow_run_id EXISTS (string, not null/empty)\n\n  True  → output[0] → Aggregate and Sort Jobs\n    workflow_run_id is present; proceed with email\n\n  False → output[1] → Empty Response\n    workflow_run_id is missing; return skip status\n    to parent workflow\n\n  When workflow_run_id may be absent:\n    - Workflow triggered manually without input\n    - Parent workflow failed before passing run ID\n    - Development or test invocations\n\n  alwaysOutputData: false\n    Only one branch fires per execution.\n\n  Next nodes:\n    True  → Aggregate and Sort Jobs\n    False → Empty Response"
     },
     {
       "parameters": {
-        "jsCode": "// ====================================================================\n// FORMAT SUCCESS RESPONSE\n// ====================================================================\n// Purpose: Transform SMTP output into consistent status object\n// Returns to parent workflow with structured status information\n\n// Get the email metadata from Build Email node\nconst emailData = $('Build Email').first().json;\n\n// Get category counts from Aggregate and Sort Jobs\n// (Build Email only forwards total_jobs and excellent_count)\nconst aggData = $('Aggregate and Sort Jobs').first().json;\n\n// SMTP node output is in current item (has connection info)\nconst smtpResult = $input.first().json;\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'success',\n    email_sent: true,\n\n    // === EMAIL STATISTICS ===\n    total_jobs: emailData.total_jobs,\n    excellent_count: emailData.excellent_count,\n    strong_count: aggData.strong_count,       // ← added\n    consider_count: aggData.consider_count,   // ← added\n    poor_count: aggData.poor_count,           // ← added\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: emailData.workflow_run_id,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString(),\n\n    // === SMTP DETAILS (optional, for debugging) ===\n    message_id: smtpResult.messageId || null\n  }\n}];"
+        "jsCode": "// ====================================================================\n// NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)\n// ====================================================================\n\n// STEP 1: Get aggregated data from previous node\n// Previous node consolidated 20 jobs into single item with statistics\nconst data = $input.first().json;\n// .first() gets the single aggregated item\n// .json extracts the data object\n\n// STEP 2: Destructure all the statistics and content\nconst {\n  total_jobs,           // 20 - Total jobs in this digest\n  excellent_count,      // 3 - Excellent matches\n  strong_count,         // 8 - Good/Strong matches\n  consider_count,       // 6 - Consider reviewing\n  poor_count,          // 3 - Poor fits\n  job_cards_html,      // Combined HTML of all job cards\n  workflow_run_id      // 67890 - Workflow tracking ID\n} = data;\n\n// ====================================================================\n// DYNAMIC SUBJECT LINE GENERATION\n// ====================================================================\n\n// Build subject line parts dynamically\nlet subjectParts = [];\n\n// Prioritize excellent matches\nif (excellent_count > 0) {\n  subjectParts.push(`${excellent_count} Excellent Match${excellent_count !== 1 ? 'es' : ''}`);\n}\n\n// Add strong matches if present\nif (strong_count > 0) {\n  subjectParts.push(`${strong_count} Strong`);\n}\n\n// Only mention \"consider\" if no excellent or strong matches\nif (consider_count > 0 && excellent_count === 0 && strong_count === 0) {\n  subjectParts.push(`${consider_count} to Consider`);\n}\n\n// Assemble final subject line\nconst subject = subjectParts.length > 0\n  ? `🎯 ${subjectParts.join(', ')} • ${total_jobs} Total Jobs`\n  : `📊 ${total_jobs} New Job${total_jobs !== 1 ? 's' : ''} to Review`;\n\n// Example subject lines:\n// - \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\" (good day)\n// - \"🎯 2 Excellent Matches • 5 Total Jobs\" (fewer jobs, high quality)\n// - \"📊 3 New Jobs to Review\" (no excellent/strong matches)\n\n// ====================================================================\n// DATE FORMATTING\n// ====================================================================\n\nconst today = new Date();\nconst formattedDate = today.toLocaleDateString('en-US', { \n  weekday: 'long',      // \"Monday\"\n  year: 'numeric',      // \"2025\"\n  month: 'long',        // \"December\"\n  day: 'numeric'        // \"29\"\n});\n// Result: \"Monday, December 29, 2025\"\n\n// ====================================================================\n// HTML EMAIL TEMPLATE\n// ====================================================================\n\nconst emailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Daily Job Digest</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">\n  \n  <!-- Email Container: 700px max width for readability -->\n  <div style=\"max-width: 700px; margin: 0 auto; padding: 20px;\">\n    \n    <!-- ================================================ -->\n    <!-- EMAIL HEADER -->\n    <!-- Purple gradient banner with title and date -->\n    <!-- ================================================ -->\n    <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; margin-bottom: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n      <h1 style=\"margin: 0 0 8px 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;\">\n        🎯 Your Daily Job Digest\n      </h1>\n      <p style=\"margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;\">\n        ${formattedDate}\n      </p>\n    </div>\n    \n    <!-- ================================================ -->\n    <!-- SUMMARY STATISTICS CARD -->\n    <!-- Four-column grid showing job counts by category -->\n    <!-- ================================================ -->\n    <div style=\"background: #ffffff; padding: 24px; border-radius: 0 0 12px 12px; margin-bottom: 24px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n      \n      <!-- Four-column responsive grid -->\n      <div style=\"display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: center;\">\n        \n        <!-- EXCELLENT MATCHES - Green theme -->\n        <div style=\"padding: 16px 8px; background: ${excellent_count > 0 ? '#f0fdf4' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${excellent_count > 0 ? '#10b981' : '#e5e7eb'};\">\n          <div style=\"color: #10b981; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${excellent_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Excellent\n          </div>\n        </div>\n        \n        <!-- STRONG MATCHES - Blue theme -->\n        <div style=\"padding: 16px 8px; background: ${strong_count > 0 ? '#eff6ff' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${strong_count > 0 ? '#3b82f6' : '#e5e7eb'};\">\n          <div style=\"color: #3b82f6; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${strong_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Strong\n          </div>\n        </div>\n        \n        <!-- CONSIDER MATCHES - Amber theme -->\n        <div style=\"padding: 16px 8px; background: ${consider_count > 0 ? '#fffbeb' : '#f9fafb'}; border-radius: 8px; border: 2px solid ${consider_count > 0 ? '#f59e0b' : '#e5e7eb'};\">\n          <div style=\"color: #f59e0b; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${consider_count}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Consider\n          </div>\n        </div>\n        \n        <!-- TOTAL JOBS - Gray theme -->\n        <div style=\"padding: 16px 8px; background: #f9fafb; border-radius: 8px; border: 2px solid #d1d5db;\">\n          <div style=\"color: #374151; font-weight: 700; font-size: 24px; margin-bottom: 4px;\">\n            ${total_jobs}\n          </div>\n          <div style=\"color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;\">\n            Total\n          </div>\n        </div>\n        \n      </div>\n      \n      <!-- Conditional highlight banner for excellent matches -->\n      ${excellent_count > 0 ? `\n      <div style=\"margin-top: 16px; padding: 12px; background: #ecfdf5; border-left: 4px solid #10b981; border-radius: 4px;\">\n        <p style=\"margin: 0; color: #065f46; font-size: 13px; font-weight: 600;\">\n          ⚡ You have ${excellent_count} excellent match${excellent_count !== 1 ? 'es' : ''} today!\n        </p>\n      </div>\n      ` : ''}\n      \n    </div>\n    \n    <!-- ================================================ -->\n    <!-- JOB CARDS SECTION -->\n    <!-- All formatted job cards inserted here -->\n    <!-- ================================================ -->\n    <div style=\"margin-bottom: 24px;\">\n      ${job_cards_html}\n    </div>\n    \n    <!-- ================================================ -->\n    <!-- EMAIL FOOTER -->\n    <!-- System information and workflow tracking -->\n    <!-- ================================================ -->\n    <div style=\"background: #ffffff; padding: 20px; border-radius: 8px; text-align: center; font-size: 13px; color: #6b7280; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);\">\n      <p style=\"margin: 0 0 8px 0; font-weight: 600; color: #374151;\">\n        📬 Automated Job Monitoring System\n      </p>\n      <p style=\"margin: 0 0 4px 0;\">\n        Workflow Run ID: <code style=\"background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-family: monospace;\">#${workflow_run_id}</code>\n      </p>\n      <p style=\"margin: 0; font-size: 12px;\">\n        Questions? Reply to this email or check your workflow logs.\n      </p>\n    </div>\n    \n    <!-- Spacer for email clients -->\n    <div style=\"height: 40px;\"></div>\n    \n  </div>\n  \n</body>\n</html>\n`;\n\n// ====================================================================\n// EMAIL DESIGN PRINCIPLES\n// ====================================================================\n\n// 1. INLINE STYLES:\n// - Email clients strip <style> tags and external CSS\n// - All styling must be inline style=\"...\" attributes\n// - Verbose but necessary for email compatibility\n\n// 2. TABLE-FREE LAYOUT:\n// - Modern approach using divs with inline-block\n// - Grid layout for statistics (fallback to stacked on mobile)\n// - More maintainable than traditional table-based email layouts\n\n// 3. COLOR CODING:\n// - Green: Excellent matches (positive, go)\n// - Blue: Strong matches (confident, professional)\n// - Amber: Consider (caution, review needed)\n// - Gray: Neutral statistics\n\n// 4. PROGRESSIVE ENHANCEMENT:\n// - Base layout works in all email clients\n// - Enhanced features (gradients, shadows) degrade gracefully\n// - Text remains readable even if styling breaks\n\n// 5. MOBILE RESPONSIVE:\n// - 700px max width for desktop readability\n// - Grid columns stack on narrow screens\n// - Touch-friendly sizing (minimum 44px tap targets)\n\n// ====================================================================\n// CONDITIONAL CONTENT\n// ====================================================================\n\n// Excellent matches highlight:\n// ${excellent_count > 0 ? `...` : ''}\n// - Only shows if there are excellent matches\n// - Creates excitement and urgency\n// - Empty string if no excellent matches\n\n// Category styling:\n// background: ${excellent_count > 0 ? '#f0fdf4' : '#f9fafb'}\n// - Active: Colored background (light green)\n// - Inactive: Gray background\n// - Visual feedback on which categories have jobs\n\n// ====================================================================\n// OUTPUT STRUCTURE\n// ====================================================================\n\nreturn [{\n  json: {\n    // === EMAIL METADATA ===\n    subject: subject,\n    // \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\"\n    \n    html_body: emailHtml,\n    // Complete HTML email (10-20KB typical)\n    \n    // === SUMMARY STATISTICS (for logging) ===\n    total_jobs: total_jobs,\n    excellent_count: excellent_count,\n    \n    // === WORKFLOW TRACKING ===\n    workflow_run_id: workflow_run_id,\n    \n    // === TIMESTAMP ===\n    generated_at: new Date().toISOString()\n    // When email was generated (for debugging)\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// Single item with complete email ready to send:\n// {\n//   subject: \"🎯 3 Excellent Matches, 8 Strong • 20 Total Jobs\",\n//   html_body: \"<!DOCTYPE html><html>...\",\n//   total_jobs: 20,\n//   excellent_count: 3,\n//   workflow_run_id: 67890,\n//   generated_at: \"2025-12-29T14:30:00.000Z\"\n// }\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "102c3e20-b5a3-4437-81c6-036e5faf78f1",
+      "name": "Build Match Email",
+      "notes": "════════════════════════════════════════════════\n  NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)  ════════════════════════════════════════════════\n  Purpose: Create professional, responsive HTML email with job digest\n  Input: Single aggregated item with statistics and combined HTML\n  Output: Complete email with dynamic subject line and formatted HTML body\n\n  Key features:\n  - Dynamic subject line based on job quality\n  - Professional HTML email template\n  - Responsive design for mobile/desktop\n  - Color-coded statistics (green/blue/amber/gray)\n  - Conditional content (highlight for excellent matches)\n  - Email client compatible (inline styles)\n\n  Next node: Send Jobs Email\n"
+    },
+    {
+      "parameters": {
+        "fromEmail": "RoleFinder Jobs <sender@example.com>",
+        "toEmail": "={{ $('Start').all()[1].json.full_name + ' <' + $('Start').all()[1].json.email + '>' }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "7bb5d5d9-964d-480d-b9f6-00926eb89fc8",
+      "name": "Send Match Email",
+      "webhookId": "5ae55e11-c189-47b1-baf1-0e533bf0d655",
+      "credentials": {
+        "smtp": {
+          "name": "SMTP"
+        }
+      },
+      "notes": "=═══════════════════════════════════\n  NODE 5: SEND EMAIL (SMTP DELIVERY)\n  Purpose: Deliver formatted HTML email digest\n  to recipient\n════════════════════════════════════\n\n  SMTP Configuration:\n  - From: \"[Email Name <email@address>]\"\n  - To: Dynamic from Start node (see below)\n  - Subject: {{ $json.subject }} (from Build Email)\n  - Body: {{ $json.html_body }} (formatted HTML)\n\n  CRITICAL: Recipient Address Uses [1] Index\n\n  {{ $('Start').all()[1].json.full_name + ' <' +\n     $('Start').all()[1].json.email + '>' }}\n\n  Parent workflow passes TWO items to Start node:\n  - Item [0]: Workflow summary (workflow_run_id,\n    companies_processed)\n  - Item [1]: User configuration (full_name,\n    email, preferences)\n\n  This node accesses Item [1] for recipient info."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================================================\n// NODE: BUILD NOMATCH EMAIL\n// ====================================================================\n// workflow_run_id comes from Start directly (Aggregate and Sort Jobs\n// did not run in this path).\n\nconst workflowRunId = $('Start').first().json.workflow_run_id;\n\nconst today = new Date();\nconst formattedDate = today.toLocaleDateString('en-US', {\n  weekday: 'long',\n  year: 'numeric',\n  month: 'long',\n  day: 'numeric'\n});\n\nconst subject = `📭 No new matches today — ${formattedDate}`;\n\nconst emailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Daily Job Digest</title>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">\n  <div style=\"max-width: 700px; margin: 0 auto; padding: 20px;\">\n\n    <!-- HEADER -->\n    <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\">\n      <h1 style=\"margin: 0 0 8px 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;\">\n        🎯 Your Daily Job Digest\n      </h1>\n      <p style=\"margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;\">\n        ${formattedDate}\n      </p>\n    </div>\n\n    <!-- NO MATCHES MESSAGE -->\n    <div style=\"background: #ffffff; padding: 32px 24px; border-radius: 0 0 12px 12px; margin-bottom: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); text-align: center;\">\n      <p style=\"font-size: 40px; margin: 0 0 16px 0;\">📭</p>\n      <p style=\"margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #374151;\">\n        No new matches today\n      </p>\n      <p style=\"margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;\">\n        No job listings matched your criteria in the last 24 hours.<br>Check back tomorrow.\n      </p>\n    </div>\n\n    <!-- TIP CARD -->\n    <div style=\"background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; padding: 20px 24px; border-radius: 8px; margin-bottom: 16px;\">\n      <p style=\"margin: 0 0 8px 0; font-size: 13px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;\">\n        💡 Tip\n      </p>\n      <p style=\"margin: 0; font-size: 14px; color: #78350f; line-height: 1.6;\">\n        If you're seeing few or no matches over several days, try <strong>adding more companies</strong> to your watchlist — a broader company list generally produces more results. You can also review your <strong>title search filters</strong> to make sure they aren't too narrow.\n      </p>\n      <p style=\"margin: 10px 0 0 0; font-size: 14px; color: #78350f; line-height: 1.6;\">\n        If you need help adjusting your configuration, contact your <strong>RoleFinder administrator</strong>.\n      </p>\n    </div>\n\n    <!-- FOOTER -->\n    <div style=\"background: #ffffff; padding: 20px; border-radius: 8px; text-align: center; font-size: 13px; color: #6b7280; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);\">\n      <p style=\"margin: 0 0 8px 0; font-weight: 600; color: #374151;\">\n        📬 Automated Job Monitoring System\n      </p>\n      <p style=\"margin: 0; font-size: 12px;\">\n        Workflow Run ID: <code style=\"background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-family: monospace;\">#${workflowRunId}</code>\n      </p>\n    </div>\n\n    <div style=\"height: 40px;\"></div>\n  </div>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    subject: subject,\n    html_body: emailHtml,\n    workflow_run_id: workflowRunId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        176
+      ],
+      "id": "dd7ad750-83c2-4f60-b79b-65c69fc959fd",
+      "name": "Build NoMatch Email",
+      "notes": "════════════════════════════════════════════════\n  NODE 4: BUILD EMAIL (HTML EMAIL GENERATOR)  ════════════════════════════════════════════════\n  Purpose: Create professional, responsive HTML email with job digest\n  Input: Single aggregated item with statistics and combined HTML\n  Output: Complete email with dynamic subject line and formatted HTML body\n\n  Key features:\n  - Dynamic subject line based on job quality\n  - Professional HTML email template\n  - Responsive design for mobile/desktop\n  - Color-coded statistics (green/blue/amber/gray)\n  - Conditional content (highlight for excellent matches)\n  - Email client compatible (inline styles)\n\n  Next node: Send Jobs Email\n"
+    },
+    {
+      "parameters": {
+        "fromEmail": "RoleFinder Jobs <sender@example.com>",
+        "toEmail": "={{ $('Start').all()[1].json.full_name + ' <' + $('Start').all()[1].json.email + '>' }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        176
+      ],
+      "id": "91feb63c-ac82-475d-87f9-57044fdfbd38",
+      "name": "Send NoMatch Email",
+      "webhookId": "5ae55e11-c189-47b1-baf1-0e533bf0d655",
+      "credentials": {
+        "smtp": {
+          "name": "SMTP"
+        }
+      },
+      "notes": "=═══════════════════════════════════\n  NODE 5: SEND EMAIL (SMTP DELIVERY)\n  Purpose: Deliver formatted HTML email digest\n  to recipient\n════════════════════════════════════\n\n  SMTP Configuration:\n  - From: \"[Email Name <email@address>]\"\n  - To: Dynamic from Start node (see below)\n  - Subject: {{ $json.subject }} (from Build Email)\n  - Body: {{ $json.html_body }} (formatted HTML)\n\n  CRITICAL: Recipient Address Uses [1] Index\n\n  {{ $('Start').all()[1].json.full_name + ' <' +\n     $('Start').all()[1].json.email + '>' }}\n\n  Parent workflow passes TWO items to Start node:\n  - Item [0]: Workflow summary (workflow_run_id,\n    companies_processed)\n  - Item [1]: User configuration (full_name,\n    email, preferences)\n\n  This node accesses Item [1] for recipient info."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ====================================================================\n// RETURN SKIP STATUS\n// ====================================================================\n// Purpose: Provide explicit status when workflow_run_id doesn't exist\n// Ensures parent workflow loop continues even when no jobs to process\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'no_matches',\n    reason: 'no_workflow_run_id',\n    email_sent: true,\n\n    // === EMPTY STATISTICS ===\n    total_jobs: 0,\n    excellent_count: 0,\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: $json.workflow_run_id || null,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString()\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// {\n//   status: 'skipped',\n//   reason: 'no_workflow_run_id',\n//   email_sent: true,\n//   total_jobs: 0,\n//   excellent_count: 0,\n//   workflow_run_id: null,\n//   timestamp: '2025-12-29T14:30:00.000Z'\n// }"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         624,
-        0
+        176
       ],
-      "id": "33d190de-fda6-4b79-a97b-7b36e57a03a2",
-      "name": "Success Response",
+      "id": "a1ce5eb0-581c-4fdf-9e2f-1c0ca285c6c3",
+      "name": "NoMatch Response",
       "notes": "════════════════════════════════════════════════\n  NODE: SUCCESS RESPONSE\n════════════════════════════════════════════════\n  Builds a structured status object after email\n  delivery and returns it to the parent workflow.\n\n  Input:  SMTP send result + Build Email metadata\n  Output: Unified status with email stats\n\n  See jsCode for output schema.\n"
     },
     {
       "parameters": {
-        "jsCode": "// ====================================================================\n// RETURN SKIP STATUS\n// ====================================================================\n// Purpose: Provide explicit status when workflow_run_id doesn't exist\n// Ensures parent workflow loop continues even when no jobs to process\n\nreturn [{\n  json: {\n    // === STATUS METADATA ===\n    status: 'skipped',\n    reason: 'no_workflow_run_id',\n    email_sent: false,\n\n    // === EMPTY STATISTICS ===\n    total_jobs: 0,\n    excellent_count: 0,\n\n    // === WORKFLOW TRACKING ===\n    workflow_run_id: $json.workflow_run_id || null,\n\n    // === TIMESTAMP ===\n    timestamp: new Date().toISOString()\n  }\n}];\n\n// WHAT GETS OUTPUT:\n// {\n//   status: 'skipped',\n//   reason: 'no_workflow_run_id',\n//   email_sent: false,\n//   total_jobs: 0,\n//   excellent_count: 0,\n//   workflow_run_id: null,\n//   timestamp: '2025-12-29T14:30:00.000Z'\n// }"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "33fe544b-4e9a-4ec8-b387-4651f8159a68",
+              "leftValue": "={{ JSON.parse($('Start').all()[1].json.preferences).notifications.send_empty_digest }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
       "position": [
         0,
-        176
+        192
       ],
-      "id": "6b8e4594-328c-4873-964d-8de99345e86a",
-      "name": "Empty Response",
-      "notes": "════════════════════════════════════════════════\n  NODE: EMPTY RESPONSE\n════════════════════════════════════════════════\n  Returns a skip status when workflow_run_id is\n  absent. Allows the parent workflow to continue\n  without sending an email.\n\n  Input:  Item from If node false branch\n  Output: Structured skip status\n\n  See jsCode for output schema.\n"
+      "id": "a3da0363-27e4-418d-9f8c-906ba8ca477f",
+      "name": "If no matches"
     }
   ],
   "pinData": {},
@@ -178,7 +264,7 @@
       "main": [
         [
           {
-            "node": "If",
+            "node": "If matches",
             "type": "main",
             "index": 0
           }
@@ -189,25 +275,19 @@
       "main": [
         [
           {
-            "node": "Build Email",
+            "node": "Build Match Email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Email": {
+    "Empty Response": {
       "main": [
-        [
-          {
-            "node": "Send email",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
-    "If": {
+    "If matches": {
       "main": [
         [
           {
@@ -218,18 +298,69 @@
         ],
         [
           {
-            "node": "Empty Response",
+            "node": "If no matches",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send email": {
+    "Build Match Email": {
+      "main": [
+        [
+          {
+            "node": "Send Match Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Match Email": {
       "main": [
         [
           {
             "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build NoMatch Email": {
+      "main": [
+        [
+          {
+            "node": "Send NoMatch Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send NoMatch Email": {
+      "main": [
+        [
+          {
+            "node": "NoMatch Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If no matches": {
+      "main": [
+        [
+          {
+            "node": "Build NoMatch Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Empty Response",
             "type": "main",
             "index": 0
           }
@@ -243,7 +374,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "0fdefc75-828c-476f-a4db-ea7e4cd68ef5",
-  "id": "LKVeUWMswVvDabFDRHVyZ",
+  "versionId": "2ea15252-01a7-40cd-b1ab-653da9c76a9f",
+  "id": "NPdbNzUd4wyAuK8m",
   "tags": []
 }

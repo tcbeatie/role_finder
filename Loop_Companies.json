@@ -1,5 +1,5 @@
 {
-  "name": "Loop_Companies_v5-1",
+  "name": "Loop_Companies_v5-2",
   "nodes": [
     {
       "parameters": {
@@ -331,6 +331,7 @@
           "cachedResultUrl": "https://console.apify.com/actors/s3dtSTZSZWFtAVLn5/input"
         },
         "customBody": "={{ $json }}",
+        "timeout": {},
         "authentication": "apifyOAuth2Api"
       },
       "type": "@apify/n8n-nodes-apify.apify",
@@ -366,7 +367,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =====================================================================\n// NODE 12: LOG ERROR\n// =====================================================================\n\n// What this node does:\n// When Apify API call completely fails (timeout, auth error,\n// network issue), we log the error so we can debug and retry later.\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Get error details from Apify node's error output\n// The Run Apify node passes error information through $json.error\n// Use $input.first().json (not $json) because this node runs in \"Run Once for All Items\" mode\nconst errorInfo = $input.first().json?.error || { message: 'Unknown error' };\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: currentCompany.company_id,\n    company_name: currentCompany.company_name,\n    domain_guess: currentCompany.domain,\n    \n    status: 'api_error',  // Indicates API call failed completely\n    jobs_found: 0,\n    \n    // No domain verification data\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',\n    \n    // Include error message for debugging\n    note: `Apify API Error: ${errorInfo.message || JSON.stringify(errorInfo)}`,\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// COMMON ERROR TYPES:\n// - Timeout: API took too long to respond (>30 seconds)\n// - Authentication: API key invalid, expired, or missing\n// - Rate limit: Too many requests in short period\n// - Network: Connection issues, DNS problems, firewall\n// - 500 error: Apify server problem\n// - 400 error: Invalid request parameters\n"
+        "jsCode": "// =====================================================================\n// NODE 12: LOG ERROR\n// =====================================================================\n\n// What this node does:\n// When Apify API call completely fails (timeout, auth error,\n// network issue), we log the error so we can debug and retry later.\n\n// Get current company from the company loop\nconst currentCompany = $('Loop Over Companies').item.json;\n\n// Get error details from Apify node's error output\nconst errorInfo = $json.error || { message: 'Unknown error' };\n\n// Create error record for database\nreturn [{\n  json: {\n    company_id: currentCompany.company_id,\n    company_name: currentCompany.company_name,\n    domain_guess: currentCompany.domain,\n    \n    status: 'api_error',  // Indicates API call failed completely\n    jobs_found: 0,\n    \n    // No domain verification data\n    domain_verified: null,\n    domains_seen: '',\n    ats_platforms_seen: '',\n    ats_type: '',\n    \n    // Include error message for debugging\n    note: `Apify API Error: ${errorInfo.message || JSON.stringify(errorInfo)}`,\n    \n    // Timestamp\n    verified_at: new Date().toISOString()\n  }\n}];\n\n// COMMON ERROR TYPES:\n// - Timeout: API took too long to respond (>30 seconds)\n// - Authentication: API key invalid, expired, or missing\n// - Rate limit: Too many requests in short period\n// - Network: Connection issues, DNS problems, firewall\n// - 500 error: Apify server problem\n// - 400 error: Invalid request parameters\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -478,7 +479,7 @@
         "workflowId": {
           "__rl": true,
           "mode": "list",
-          "cachedResultName": "Loop_Jobs_v5-1"
+          "cachedResultName": "Loop_Jobs_v5-2"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -497,7 +498,7 @@
         304
       ],
       "id": "892f9c73-dad2-48be-8673-f50d21d956a2",
-      "name": "Call 'Loop_Jobs_v5-1'",
+      "name": "Call 'Loop_Jobs_v5-2'",
       "notes": " ═════════════════════════\n     NODE 11: CALL SUB-WORKFLOW\n(EXECUTE WORKFLOW)    ═════════════════════════\n     Calls the \"Loop Jobs\" workflow to process\n     each job with AI evaluation.\n\n     What this node does:\n     1. Receives jobs with context from \"Add Context\"\n     node\n     2. Calls \"Loop Jobs v4.1\" workflow\n     3. Passes ALL job data (including _context_\n     fields) to sub-workflow\n     4. Waits for sub-workflow to complete ALL jobs for\n     current company\n     5. Returns to company loop when done\n\n     Sub-workflow (Loop Jobs v4.1) handles:\n     - Individual job iteration (loops through jobs one\n     at a time)\n     - AI evaluation with Claude Sonnet 4.5 using\n     _context_resume_text\n     - Parsing AI response\n     - Merging AI evaluation with raw job data\n     - Formatting HTML job cards\n     - Saving to email queue table\n\n     Why separate workflows?\n     1. SEPARATION OF CONCERNS:\n     - Company workflow: Orchestration and\n     company-level operations\n     - Job workflow: Individual job processing and AI\n     evaluation\n\n     2. INDEPENDENT TESTING:\n     - Test job evaluation without running company loop\n     - Can test company discovery without AI evaluation\n\n     3. EASIER DEBUGGING:\n     - Isolate issues to specific workflow\n     - View execution logs separately\n\n     4. REUSABILITY:\n     - Job workflow could be triggered from other\n     sources\n     - E.g., manual job evaluation, webhook triggers\n\n     5. CLEANER ARCHITECTURE:\n     - No nested loops in single workflow\n     - Clear workflow boundaries and responsibilities\n\n     Data flow across workflow boundary:\n     Parent (this workflow) passes to sub-workflow:\n     - All Apify job fields (id, title, salary,\n     location, description, etc.)\n     - _context_workflow_run_id (parent execution ID\n     for grouping)\n     - _context_company_id (company identifier)\n     - _context_company_name (company display name)\n     - _context_domain (company domain)\n     - _context_profile_id (candidate profile\n     identifier)\n     - _context_resume_text (full resume for AI\n     evaluation)\n     - _context_target_criteria (job search criteria\n     JSON)\n\n     Sub-workflow returns:\n     Nothing explicit - it saves directly to email\n     queue table.\n     The parent workflow continues when sub-workflow execution completes.\n\n     Timing:\n     - If 8 jobs found for Anthropic\n     - This node is called with all 8 jobs\n     - Sub-workflow processes them one-by-one (internal loop)\n     - Takes 2-5 seconds per job = 16-40 seconds total\n     - Returns control after all 8 jobs processed\n\n     Parallel execution:\n     This node runs in PARALLEL with \"Save Apify data\"\n     path:\n     - Save path: Completes in milliseconds\n     - This path: Completes in seconds (AI evaluation)\n     - Company loop waits for BOTH to complete\n\n     - After sub-workflow completes all jobs for\n     current company\n     - Loops back to \"Loop Over Companies\" node\n     - Company loop advances to next company\n"
     }
   ],
@@ -576,7 +577,7 @@
       "main": [
         [
           {
-            "node": "Call 'Loop_Jobs_v5-1'",
+            "node": "Call 'Loop_Jobs_v5-2'",
             "type": "main",
             "index": 0
           },
@@ -661,7 +662,7 @@
         ]
       ]
     },
-    "Call 'Loop_Jobs_v5-1'": {
+    "Call 'Loop_Jobs_v5-2'": {
       "main": [
         [
           {
