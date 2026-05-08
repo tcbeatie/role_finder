@@ -69,7 +69,7 @@ Companies moved to `companies` database table with profile_id foreign key. Main 
 ---
 
 ### 3b. Externalize Remaining Apify Filters
-`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.1:
+`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.2:
 
 - [ ] **Externalize `timeRange`** — move from Build Request node to `apify_filters.timeRange`
 - [ ] **Externalize `locationSearch`** — move from Build Request node to `apify_filters.locationSearch`
@@ -84,7 +84,7 @@ All three should read from `_context_target_criteria.apify_filters` exactly as `
 ---
 
 ### ~~3c. Fail nicely when zero jobs~~ ✅ DONE (v0.5.1 / v0.4.1)
-Send Email v4.1 implements dual-path execution: empty queue → Skip path returns structured `{status: "skipped", email_sent: false, total_jobs: 0, ...}` response; Main loop continues to next profile without hanging.
+Send Email v5.1 implements tri-path execution: jobs found → Match digest; empty queue + `send_empty_digest: true` → No-matches notification; empty queue + preference disabled → Skip (structured `{status: "skipped", ...}` response). Main loop continues to next profile without hanging.
 
 ---
 
@@ -587,7 +587,9 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 ## ✅ Completion Criteria
 
 **Production Ready:**
-- [x] All four workflows deployed and documented (Main v6.1, Loop Companies v5.1, Loop Jobs v5.1, Send Email v4.1)
+- [x] All four workflows deployed and documented (Main v6.1, Loop Companies v5.2, Loop Jobs v5.2, Send Email v5.1)
+- [x] Per-job AI error handling — Loop Jobs v5.2 logs failures to `errors` table; loop continues (v1.1.0)
+- [x] No-matches notifications — Send Email v5.1 sends "no new matches today" email when queue empty + `send_empty_digest: true` (v1.1.0)
 - [x] Profile and company data externalized to database
 - [x] Multi-user pipeline (Loop Over Profiles in Main v6.1)
 - [x] Per-profile run history via `run_reports` table (v0.6.0)
@@ -634,4 +636,4 @@ Most high-risk changes (self-hosting, batching) are optional optimizations. Core
 
 ---
 
-*Last Updated: February 20, 2026 (promoted v0.6.0-rc1 → v1.0.0)*
+*Last Updated: May 8, 2026 (shipped v1.1.0 — per-job AI error handling + no-matches notifications)*
