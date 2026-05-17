@@ -345,8 +345,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - Multi-user production deployment hardening
 
 ### v2.0.0 (Planned)
-- Profile management UI/API
-- Historical job tracking and deduplication
+- Resume uploading
 - Advanced filtering and scoring customization
 - Workflow scheduling per profile
 

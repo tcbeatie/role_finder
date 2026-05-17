@@ -57,9 +57,6 @@ Fix approach:
 ### ~~3. Externalize Resume/Profile Data~~ ✅ DONE (v0.4.1)
 Profile data moved from hardcoded workflow nodes to `candidate_profile` database table. Loaded once at Main startup, passed to sub-workflows via `_context_*` fields. No personal data in workflow JSON files.
 
-- [ ] **Create profile management workflow** (optional future enhancement)
-  - CRUD operations for profiles
-  - Version history tracking
 
 ---
 
@@ -409,29 +406,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 
 ## 🚀 Feature Enhancements (Future)
 
-### 13. Historical Analysis Dashboard
-- [ ] **Build web dashboard**
-  - Technology: React + Next.js or Streamlit
-  - Connect to database (read-only)
-  - Visualizations:
-    - Jobs found over time (line chart)
-    - AI score distribution (histogram)
-    - Top companies by job count (bar chart)
-    - Salary trends (box plot)
-    - Location breakdown (pie chart)
-
-- [ ] **Add filtering and search**
-  - Filter by date range
-  - Filter by company
-  - Filter by recommendation
-  - Search by job title or keywords
-
-**Why**: Better insights, track market trends
-**Estimated effort**: 8-12 hours
-
----
-
-### 14. AI Improvements
+### 13. AI Improvements
 - [ ] **Fine-tune evaluation prompt**
   - A/B test different prompt phrasings
   - Optimize for consistent scoring
@@ -466,7 +441,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [ ] **Web interface for configuration** (future)
   - Update profile without editing database directly
   - Manage company list via UI
-  - View historical digests and run_reports
 - [ ] **Team/shared mode** (future)
   - Multiple users tracking the same company list
   - Collaborative job board with comments
@@ -516,14 +490,12 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 ### Consider (Next Quarter)
 10. Batch Apify requests (cost savings)
 11. Self-host n8n (bigger cost savings)
-12. Historical analysis dashboard (run_reports data now available!)
-13. AI improvements
+12. AI improvements
 
 ### Future/Maybe
-14. Direct ATS integrations
-15. Real-time webhooks
-16. Mobile app
-17. Profile management web UI
+13. Direct ATS integrations
+14. Real-time webhooks
+15. Mobile app
 
 ---
 
@@ -609,7 +581,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [ ] Remaining Apify filters externalized (timeRange, locationSearch, aiWorkArrangementFilter)
 - [ ] Apify requests batched (75% cost reduction)
 - [ ] Self-hosted n8n (60% hosting cost reduction)
-- [ ] Historical dashboard deployed (run_reports data now available as foundation)
 
 **Extended:**
 - [x] Multi-user support — core pipeline done; UI/hardening remaining
