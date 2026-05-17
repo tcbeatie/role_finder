@@ -1,5 +1,6 @@
-# Claude Code guidance file
+# Claude Code files
 CLAUDE.md
+.claude/
 
 # Local directory for user-specific files
 local/
