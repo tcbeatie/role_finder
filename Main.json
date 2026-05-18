@@ -121,7 +121,7 @@
         "workflowId": {
           "__rl": true,
           "mode": "list",
-          "cachedResultName": "Send_Email_v4-1"
+          "cachedResultName": "Send_Email_v5-1"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -140,7 +140,7 @@
         272
       ],
       "id": "99dad99f-12e7-4a39-b9f8-5ae6d167e6c0",
-      "name": "Call 'Send_Email_v4-1'",
+      "name": "Call 'Send_Email_v5-1'",
       "notes": "=═════════════════════════\n  NODE 4: CALL SEND EMAIL SUB-WORKFLOW ═════════════════════════\n  Executes the email generation and delivery workflow\n\n  Purpose:\n  - Aggregates all evaluated jobs from\n  email_queue table\n  - Generates professional HTML digest email\n  - Delivers via Gmail API\n  - Completes the daily job monitoring cycle\n\n  Workflow called: Send Email v2.1\n  Input: Summary data from Loop Companies\n  - Receives workflow_run_id for querying email_queue\n  - Profile data NOT needed (already embedded in\n  job cards)\n\n  What Send Email v2.1 does:\n  1. Queries email_queue for all jobs from this\n  workflow run\n  2. Sorts jobs by overall_score (best matches first)\n  3. Groups by recommendation category\n  (excellent/good/consider)\n  4. Generates dynamic email subject line\n  5. Builds HTML email with all formatted job cards\n  6. Sends via Gmail API\n  7. Returns delivery confirmation\n\n  Data sources:\n  Send Email queries email_queue table:\n  - WHERE workflow_run_id = {{\n  $json.workflow_run_id }}\n  - Gets ALL jobs evaluated during this run\n  - Jobs already contain:\n    - Complete job details\n    - AI evaluation scores\n    - Formatted HTML cards\n    - Profile matching results\n\n  Email structure:\n  ┌───────────────────────┐\n  │ 🎯 Your Daily Job Digest          │\n  │ Monday, December 29, 2025          │\n  ├───────────────────────┤\n  │ Summary: 15 Excellent, 45 Strong   │\n  ├───────────────────────┤\n  │ [Job Card 1 - Score 10/10]         │\n  │ [Job Card 2 - Score 9/10]          │\n  │ ...                                │\n  │ [Job Card 120 - Score 3/10]        │\n  ├───────────────────────┤\n  │ Footer: Workflow Run ID #67890     │\n  └───────────────────────┘\n\n  Execution time:\n  - Query: ~1 second (120 rows)\n  - Email generation: ~1 second\n  - Gmail API: ~1 second\n  - Total: ~3 seconds\n\n  Delivery:\n  - Recipient: [configured in Send Email workflow]\n  - Method: Gmail API (OAuth2 authenticated)\n  - Appears in: Gmail Inbox + Sent folder\n  - Deliverability: >99% (verified sender,\n  proper authentication)\n\n  Error handling:\n  - Gmail API failures logged in Send Email execution\n  - Retry logic: 3 attempts with exponential backoff\n  - If all attempts fail: Email saved to\n  database for manual retry\n  - User notified via separate error\n  notification (if configured)\n\n  Return value:\n  Send Email returns:\n  {\n    status: \"success\",\n    email_sent: true,\n    recipient: \"[email address]\",\n    jobs_included: 120,\n    message_id: \"<abc123@mail.gmail.com>\",\n    delivered_at: \"2025-12-29T06:08:15Z\"\n  }\n\n  Workflow completion:\n  After this node executes:\n  - Main workflow completes\n  - User receives daily digest email\n  - Database contains:\n    - jobs table: Raw job data\n    - email_queue table: Formatted job cards\n    - errors table: Any failed companies\n  - Ready for tomorrow's scheduled run\n"
     },
     {
@@ -148,7 +148,7 @@
         "workflowId": {
           "__rl": true,
           "mode": "list",
-          "cachedResultName": "Loop_Companies_v5-1"
+          "cachedResultName": "Loop_Companies_v5-2"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -167,7 +167,7 @@
         0
       ],
       "id": "1106970f-f72f-4a30-99a0-99cf6fb18039",
-      "name": "Call 'Loop_Companies_v5-1'",
+      "name": "Call 'Loop_Companies_v5-2'",
       "notes": "═════════════════════════\n  NODE 3: CALL LOOP COMPANIES SUB-WORKFLOW  ═════════════════════════\n  Executes the company discovery and job\n  processing workflow\n\n  Purpose:\n  - Orchestrates company-by-company job discovery\n  - Passes profile data from parent to child workflow\n  - Handles all company iteration and error\n  management\n  - Returns control when all companies complete\n\n  Workflow called: Loop Companies v3.1\n  Input: Profile data from Load Profile node\n  - n8n automatically passes data from previous node\n  - Profile available as $json in child workflow\n\n  What Loop Companies v3.1 does:\n  1. Loads companies from companies table\n  2. Iterates one company at a time (fault tolerance)\n  3. For each company:\n     - Calls Apify API to discover jobs\n     - Enriches jobs with profile data\n  (_context_profile_data)\n     - Saves raw jobs to database (backup)\n     - Calls Loop Jobs sub-workflow with enriched jobs\n  4. Logs errors for failed companies\n  5. Returns summary when all complete\n\n  Execution time:\n  - ~40 companies × ~10 seconds per company = ~7-8 minutes total\n  - Includes: API calls, database saves,\n  sub-workflow calls\n  - May vary based on job counts and API\n  response times\n\n  Waiting behavior:\n  - This node WAITS for Loop Companies to\n  complete entirely\n  - All companies processed before advancing\n  - All jobs evaluated by AI before advancing\n  - This ensures complete data set for email\n  generation\n\n  Error handling:\n  - Loop Companies handles errors internally\n  - Failed companies logged to errors table\n  - Workflow continues even if some companies fail\n  - Main workflow always completes (no crash)\n\n  Return value:\n  Loop Companies returns:\n  {\n    workflow_run_id: 67890,\n    companies_processed: 40,\n    jobs_found: 120,\n    errors: 5,\n    execution_time_ms: 456000\n  }\n\n  This return data flows to Send Email for reference."
     },
     {
@@ -476,7 +476,7 @@
       "main": [
         [
           {
-            "node": "Call 'Loop_Companies_v5-1'",
+            "node": "Call 'Loop_Companies_v5-2'",
             "type": "main",
             "index": 0
           }
@@ -487,7 +487,7 @@
       "main": [
         [
           {
-            "node": "Call 'Send_Email_v4-1'",
+            "node": "Call 'Send_Email_v5-1'",
             "type": "main",
             "index": 0
           }
@@ -505,7 +505,7 @@
         ]
       ]
     },
-    "Call 'Send_Email_v4-1'": {
+    "Call 'Send_Email_v5-1'": {
       "main": [
         [
           {
@@ -516,7 +516,7 @@
         ]
       ]
     },
-    "Call 'Loop_Companies_v5-1'": {
+    "Call 'Loop_Companies_v5-2'": {
       "main": [
         [
           {

@@ -57,9 +57,6 @@ Fix approach:
 ### ~~3. Externalize Resume/Profile Data~~ ✅ DONE (v0.4.1)
 Profile data moved from hardcoded workflow nodes to `candidate_profile` database table. Loaded once at Main startup, passed to sub-workflows via `_context_*` fields. No personal data in workflow JSON files.
 
-- [ ] **Create profile management workflow** (optional future enhancement)
-  - CRUD operations for profiles
-  - Version history tracking
 
 ---
 
@@ -69,7 +66,7 @@ Companies moved to `companies` database table with profile_id foreign key. Main 
 ---
 
 ### 3b. Externalize Remaining Apify Filters
-`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.1:
+`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.2:
 
 - [ ] **Externalize `timeRange`** — move from Build Request node to `apify_filters.timeRange`
 - [ ] **Externalize `locationSearch`** — move from Build Request node to `apify_filters.locationSearch`
@@ -84,7 +81,7 @@ All three should read from `_context_target_criteria.apify_filters` exactly as `
 ---
 
 ### ~~3c. Fail nicely when zero jobs~~ ✅ DONE (v0.5.1 / v0.4.1)
-Send Email v4.1 implements dual-path execution: empty queue → Skip path returns structured `{status: "skipped", email_sent: false, total_jobs: 0, ...}` response; Main loop continues to next profile without hanging.
+Send Email v5.1 implements tri-path execution: jobs found → Match digest; empty queue + `send_empty_digest: true` → No-matches notification; empty queue + preference disabled → Skip (structured `{status: "skipped", ...}` response). Main loop continues to next profile without hanging.
 
 ---
 
@@ -409,29 +406,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 
 ## 🚀 Feature Enhancements (Future)
 
-### 13. Historical Analysis Dashboard
-- [ ] **Build web dashboard**
-  - Technology: React + Next.js or Streamlit
-  - Connect to database (read-only)
-  - Visualizations:
-    - Jobs found over time (line chart)
-    - AI score distribution (histogram)
-    - Top companies by job count (bar chart)
-    - Salary trends (box plot)
-    - Location breakdown (pie chart)
-
-- [ ] **Add filtering and search**
-  - Filter by date range
-  - Filter by company
-  - Filter by recommendation
-  - Search by job title or keywords
-
-**Why**: Better insights, track market trends
-**Estimated effort**: 8-12 hours
-
----
-
-### 14. AI Improvements
+### 13. AI Improvements
 - [ ] **Fine-tune evaluation prompt**
   - A/B test different prompt phrasings
   - Optimize for consistent scoring
@@ -466,7 +441,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [ ] **Web interface for configuration** (future)
   - Update profile without editing database directly
   - Manage company list via UI
-  - View historical digests and run_reports
 - [ ] **Team/shared mode** (future)
   - Multiple users tracking the same company list
   - Collaborative job board with comments
@@ -516,14 +490,12 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 ### Consider (Next Quarter)
 10. Batch Apify requests (cost savings)
 11. Self-host n8n (bigger cost savings)
-12. Historical analysis dashboard (run_reports data now available!)
-13. AI improvements
+12. AI improvements
 
 ### Future/Maybe
-14. Direct ATS integrations
-15. Real-time webhooks
-16. Mobile app
-17. Profile management web UI
+13. Direct ATS integrations
+14. Real-time webhooks
+15. Mobile app
 
 ---
 
@@ -587,7 +559,9 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 ## ✅ Completion Criteria
 
 **Production Ready:**
-- [x] All four workflows deployed and documented (Main v6.1, Loop Companies v5.1, Loop Jobs v5.1, Send Email v4.1)
+- [x] All four workflows deployed and documented (Main v6.1, Loop Companies v5.2, Loop Jobs v5.2, Send Email v5.1)
+- [x] Per-job AI error handling — Loop Jobs v5.2 logs failures to `errors` table; loop continues (v1.1.0)
+- [x] No-matches notifications — Send Email v5.1 sends "no new matches today" email when queue empty + `send_empty_digest: true` (v1.1.0)
 - [x] Profile and company data externalized to database
 - [x] Multi-user pipeline (Loop Over Profiles in Main v6.1)
 - [x] Per-profile run history via `run_reports` table (v0.6.0)
@@ -607,7 +581,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [ ] Remaining Apify filters externalized (timeRange, locationSearch, aiWorkArrangementFilter)
 - [ ] Apify requests batched (75% cost reduction)
 - [ ] Self-hosted n8n (60% hosting cost reduction)
-- [ ] Historical dashboard deployed (run_reports data now available as foundation)
 
 **Extended:**
 - [x] Multi-user support — core pipeline done; UI/hardening remaining
@@ -634,4 +607,4 @@ Most high-risk changes (self-hosting, batching) are optional optimizations. Core
 
 ---
 
-*Last Updated: February 20, 2026 (promoted v0.6.0-rc1 → v1.0.0)*
+*Last Updated: May 8, 2026 (shipped v1.1.0 — per-job AI error handling + no-matches notifications)*

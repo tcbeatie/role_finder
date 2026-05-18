@@ -1,6 +1,55 @@
 # RoleFinder Release Notes
 
-## Latest Release: v1.0.0
+## Latest Release: v1.1.0
+
+**Release Date:** May 8, 2026
+**Branch:** `3-send-no-jobs-today-email-if-no-jobs-found`
+**Status:** Production-Ready
+
+### Overview
+
+Version 1.1.0 ships two improvements: per-job AI error handling in Loop Jobs (so a single Claude API failure no longer silently drops a job from the digest), and per-user opt-in "no matches today" email notifications in Send Email (so users know when nothing was found, rather than receiving no email at all).
+
+### Key Changes
+
+#### Loop Jobs v5.2 (11 nodes, was 9)
+
+- ✅ **Model update** — upgraded from `claude-sonnet-4-5-20250929` to `claude-sonnet-4-6`
+- ✅ **Log AI error** — captures the failed job's context and error message when `Message a model` or `Parse AI Response` raises an error
+- ✅ **Insert error row** — persists the error to the `errors` table; loop then continues to the next job rather than halting
+
+Error flow: `Message a model` (error output) or `Parse AI Response` (error output) → `Log AI error` → `Insert error row` → `Loop Over Jobs` (continue)
+
+#### Send Email v5.1 (12 nodes, was 8)
+
+Four new nodes added to create a no-matches notification path:
+
+- ✅ **If no matches** — gates on `preferences.notifications.send_empty_digest`; fires when email queue is empty after the `If matches` false branch
+- ✅ **Build NoMatch Email** — generates a minimal HTML digest with subject `📭 No new matches today — <date>`, a tip card, and workflow run ID in the footer
+- ✅ **Send NoMatch Email** — SMTP delivery of the no-match notification
+- ✅ **NoMatch Response** — returns `{ status: 'no_matches', email_sent: true, ... }` to parent workflow
+
+Existing nodes renamed for clarity:
+- `Build Email` → `Build Match Email`
+- `Send email` → `Send Match Email`
+- `If` → `If matches`
+
+**Three execution paths (was two):**
+
+| Path | Condition | Email sent | Status returned |
+|------|-----------|-----------|----------------|
+| Matches | Jobs found in queue | Match digest | `success` |
+| No-matches-send | Empty queue + `send_empty_digest: true` | "No matches" notice | `no_matches` |
+| No-matches-skip | Empty queue + `send_empty_digest: false` (or missing `workflow_run_id`) | None | `skipped` |
+
+#### candidate_profile table
+
+- ✅ New `preferences TEXT` column required — stores JSON with notification preferences
+- Schema: `{ "notifications": { "send_empty_digest": true } }`
+
+---
+
+## Previous Release: v1.0.0
 
 **Release Date:** February 20, 2026
 **Branch:** `main`
@@ -165,6 +214,32 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Version History
 
+### v1.1.0 (2026-05-08)
+
+**Added:**
+- `Log AI error` node in Loop Jobs — captures error context when AI call or JSON parse fails
+- `Insert error row` node in Loop Jobs — persists per-job AI failures to `errors` table; loop continues
+- `If no matches` node in Send Email — gates no-match email on `preferences.notifications.send_empty_digest`
+- `Build NoMatch Email` node in Send Email — "no new matches today" HTML digest with tip card
+- `Send NoMatch Email` node in Send Email — SMTP delivery of no-match notification
+- `NoMatch Response` node in Send Email — returns `{ status: 'no_matches', email_sent: true }` to parent
+- `preferences TEXT` column in `candidate_profile` table — JSON field for per-user notification settings
+
+**Changed:**
+- Loop_Jobs.json: Upgraded from v5.1 to v5.2 (9 → 11 nodes)
+- Loop Jobs AI model: `claude-sonnet-4-5-20250929` → `claude-sonnet-4-6`
+- Send_Email.json: Upgraded from v4.1 to v5.1 (8 → 12 nodes)
+- `Build Email` → `Build Match Email` (renamed for clarity)
+- `Send email` → `Send Match Email` (renamed for clarity)
+- `If` → `If matches` (renamed for clarity)
+- Send Email now has three execution paths (was two); false branch of `If matches` routes to `If no matches` instead of directly to `Empty Response`
+- README.md: Updated all version references, workflow descriptions, status response schema, `candidate_profile` table schema, setup example
+
+**Fixed:**
+- AI evaluation failures (Claude API error or malformed JSON response) previously silently dropped a job from the digest with no record; now logged to `errors` table
+
+---
+
 ### v1.0.0 (2026-02-20)
 
 **Added:**
@@ -270,8 +345,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - Multi-user production deployment hardening
 
 ### v2.0.0 (Planned)
-- Profile management UI/API
-- Historical job tracking and deduplication
+- Resume uploading
 - Advanced filtering and scoring customization
 - Workflow scheduling per profile
 

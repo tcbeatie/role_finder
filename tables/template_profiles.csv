@@ -1,2 +1,2 @@
-﻿profile_id,full_name,email,resume_text,target_criteria,notes
-default,"John Doe","jdoe@somewhere.com","[Resume text here]","[Target role criteria]","[Notes]"
+profile_id,full_name,email,resume_text,target_criteria,preferences,notes
+default,"John Doe","jdoe@somewhere.com","[Resume text here]","[Target role criteria]","[User preferences]","[Notes]"
