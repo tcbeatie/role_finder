@@ -336,13 +336,8 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 
 ## Roadmap
 
-### v1.0.1 (Planned)
-- Audit and fix match category counts (issue #42): STRONG_MATCH dead branch, REJECT uncounted, hardcoded zeros in Save Run Report
-- Externalize remaining Apify filters (`timeRange`, `locationSearch`, `aiWorkArrangementFilter`)
-- Comprehensive error handling (try/catch in all Code nodes)
-- Retry logic for API failures
-- Error notification system
-- Multi-user production deployment hardening
+### v1.0.1 (Skipped)
+Planned but never shipped — v1.1.0 shipped instead. Remaining items tracked in `TODO.md`.
 
 ### v2.0.0 (Planned)
 - Resume uploading

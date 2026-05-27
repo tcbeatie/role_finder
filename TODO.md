@@ -35,21 +35,18 @@ Main v6.1 has a `Schedule Trigger` node wired to `Load Profiles`, configured to 
 ---
 
 ### 2a. Fix Match Category Count Bugs (Issue #42)
-Three correctness bugs in the run_reports pipeline discovered post-v0.6.0 merge:
+Originally three bugs; two resolved:
 
-- [ ] **STRONG_MATCH dead branch** — Loop Jobs emits `STRONG_MATCH` as a recommendation but no downstream path handles it; those jobs are silently dropped from category counts
-- [ ] **REJECT uncounted** — `POOR_FIT`/`REJECT` category is evaluated but not tallied in Send Email's `poor_count` return value
-- [ ] **Hardcoded zeros in Save Run Report** — Build Run Report node writes literal `0` for some count fields instead of reading from Send Email's structured response
+- [x] ~~**STRONG_MATCH dead branch**~~ — `Aggregate and Sort Jobs` already catches `STRONG_MATCH || GOOD_MATCH`; never actually a dead branch. Entry was stale.
+- [x] **REJECT uncounted** — Fixed: `poorFits` filter in `Aggregate and Sort Jobs` updated to `=== 'POOR_FIT' || === 'REJECT'` (v1.1.x)
+- [ ] **Hardcoded zeros in Save Run Report** — Build Run Report node may write literal `0` for some count fields instead of reading from Send Email's structured response; needs audit
 
 Fix approach:
-  - Audit Loop Jobs recommendation categories against Send Email aggregation logic
-  - Confirm which label (`STRONG_MATCH` vs `GOOD_MATCH`) the AI actually returns and align node routing
-  - Verify Send Email `Success Response` returns non-zero values for all five count fields
   - Confirm Build Run Report reads each count from `$('Call Send Email').item.json.*` (not hardcoded)
-  - Test with a real run and query `run_reports` to verify all columns populate correctly
+  - Test with a real run and query `run_reports` to verify all five count columns populate correctly
 
-**Why**: run_reports data is wrong today — category counts undercount matches and make historical analysis unreliable
-**Estimated effort**: 2-3 hours
+**Why**: run_reports category counts may still undercount on some paths
+**Estimated effort**: 30 min
 **Tracking**: GitHub issue #42
 
 ---
@@ -501,6 +498,8 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 
 ## 🎯 Quick Wins (< 1 hour each)
 
+- [ ] **Fix `NoMatch Response` wrong reason field** — `Send_Email.json` `NoMatch Response` node has `reason: 'no_workflow_run_id'` (copy-paste from `Empty Response`); should be `reason: 'empty_queue'` since this path fires when the email queue is empty, not when a run ID is missing
+- [ ] **Guard `If no matches` preferences parse** — condition expression `JSON.parse($('Start').all()[1].json.preferences).notifications.send_empty_digest` crashes if `preferences` is null, missing, or malformed JSON; wrap in IIFE try/catch defaulting to `false`
 - [ ] **Create `run_reports` table** from `tables/template_run_reports.csv` schema (required for v0.6.0)
 - [ ] Add unique constraint to email_queue table
 - [ ] Set up uptime monitoring (UptimeRobot free tier)

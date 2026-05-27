@@ -2,6 +2,14 @@
 
 **An intelligent, AI-powered job monitoring system that discovers, evaluates, and delivers personalized job opportunities via email digest.**
 
+## Support This Project
+
+RoleFinder is free and open source. If it saves you time in your job search, consider buying me a coffee — it helps cover API costs and ongoing development.
+
+[☕ Buy Me a Coffee](https://buy.stripe.com/aFa9AVa3k4pZ7RG8xPg3600)
+
+---
+
 ## Who This Project Is For
 
 This repository is intended for **developers and technical users** who want to run and self-host their own job-tracking solution using RoleFinder.
@@ -95,7 +103,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  MAIN v6.1 (Orchestrator)                                   │
+│  MAIN v6.2 (Orchestrator)                                   │
 │  Purpose: Load profiles and orchestrate multi-user pipeline │
 │  Input:   Manual/scheduled trigger                          │
 │  Actions: 1. Load Profiles from candidate_profile table     │
@@ -151,7 +159,7 @@ Candidate profiles are stored in the `candidate_profile` database table, not har
 5. Loop Jobs uses profile data for AI evaluation without storing it in workflow
 6. Main workflow calls Send Email via sub-workflow execution
 
-### Multi-Profile Architecture (Main v6.1)
+### Multi-Profile Architecture (Main v6.2)
 
 Single workflow run can process multiple users sequentially.
 
@@ -177,7 +185,7 @@ Single workflow run can process multiple users sequentially.
 
 ### Workflow Details
 
-**Main v6.1 (13 nodes)** - Top-level orchestrator with multi-profile support and run reporting
+**Main v6.2 (14 nodes)** - Top-level orchestrator with multi-profile support and run reporting
 - Entry point via manual trigger or cron schedule
 - Loads ALL candidate profiles from `candidate_profile` database table
 - Loops over each profile sequentially (enables multi-user support)
@@ -494,7 +502,7 @@ AI Assessment: Perfect match - infrastructure focus...
 📚 **Complete documentation available in repository:**
 
 - **README.md** - You're looking at it!
-- **Main.json** - Main orchestrator v6.1 (13 nodes, multi-profile support + run reporting + admin summary email)
+- **Main.json** - Main orchestrator v6.2 (14 nodes, multi-profile support + run reporting + admin summary email)
 - **Loop_Companies.json** - Workflow 1 v5.2 (15 nodes, dynamic Apify filters)
 - **Loop_Jobs.json** - Workflow 2 v5.2 (11 nodes, dynamic AI scoring + per-job AI error handling)
 - **Send_Email.json** - Workflow 3 v5.1 (12 nodes, tri-path execution: matches / no-matches-send / no-matches-skip)
@@ -526,7 +534,7 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
    # 1. Loop_Jobs.json (v5.2) - AI evaluation with dynamic scoring + error handling
    # 2. Loop_Companies.json (v5.2) - Job discovery with dynamic filters
    # 3. Send_Email.json (v5.1) - Email delivery with tri-path execution
-   # 4. Main.json (v6.1) - Multi-profile orchestrator with run reporting
+   # 4. Main.json (v6.2) - Multi-profile orchestrator with run reporting
    ```
 
 2. **Configure Credentials**
@@ -619,21 +627,21 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 6. **Update Configuration**
    - Update `fromEmail` in two places: the "Send an Email" node in Main.json and the "Send email" node in Send_Email.json — change `sender@example.com` to your actual sending address
    - Recipient email is automatically sourced from candidate_profile table
-   - Main v6.1 automatically processes all profiles (no filter needed)
+   - Main v6.2 automatically processes all profiles (no filter needed)
    - To limit to specific profiles, add filter in Load Profiles node
    - Adjust scoring criteria in Loop Jobs v5.2 prompt if needed
 
 7. **Test Execution**
    ```bash
    # Test with 3 companies first
-   # 1. Run Main v6.1 manually
+   # 1. Run Main v6.2 manually
    # 2. Verify jobs in database
    # 3. Check email received
    # 4. Review formatting
    ```
 
 8. **Schedule Daily Run**
-   - Add cron trigger to Main v6.1: `0 6 * * *` (6 AM daily)
+   - Add cron trigger to Main v6.2: `0 6 * * *` (6 AM daily)
    - Monitor first week for issues
    - Review cost and performance
 
@@ -723,7 +731,7 @@ WHERE profile_id = 'default';
 Both job discovery filters and AI scoring dimensions are dynamically read from this field.
 
 ### Supporting Multiple Users
-Add multiple profiles to `candidate_profile` table (each with unique email). Main v6.1 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
+Add multiple profiles to `candidate_profile` table (each with unique email). Main v6.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
 
 ### Customizing AI Criteria
 Update the `ai_scoring_criteria` section in `target_criteria` - no workflow changes needed:
@@ -747,13 +755,13 @@ The Loop Jobs workflow automatically uses your custom dimensions in AI evaluatio
 Modify HTML template in Send Email v5.1 Build Match Email node - test with pin data.
 
 ### Multiple Recipients
-Add multiple profiles to candidate_profile table (Main v6.1 automatically processes all). Each profile receives their own personalized digest.
+Add multiple profiles to candidate_profile table (Main v6.2 automatically processes all). Each profile receives their own personalized digest.
 
 ### Alternative Delivery
 Replace SMTP node with Slack, Discord, or database save.
 
 ### Weekly Digests
-Change cron schedule in Main v6.1 and modify email query to include last 7 days.
+Change cron schedule in Main v6.2 and modify email query to include last 7 days.
 
 ---
 
@@ -776,7 +784,7 @@ Change cron schedule in Main v6.1 and modify email query to include last 7 days.
 ## Project Status
 
 **Current State:**
-- ✅ Production-ready four-workflow architecture with orchestrator (Main v6.1)
+- ✅ Production-ready four-workflow architecture with orchestrator (Main v6.2)
 - ✅ Multi-profile support (process multiple users in single run)
 - ✅ Profile externalization (clean workflow files, no PII in JSON)
 - ✅ Comprehensive documentation (116KB)
