@@ -7,32 +7,6 @@ Main v6.1 has a `Schedule Trigger` node wired to `Load Profiles`, configured to 
 
 ---
 
-### 2. Validate API Credits & Quotas
-- [ ] **Check Anthropic API quota**
-  - Log into Anthropic console
-  - Review current usage and limits
-  - Calculate daily usage: 120 jobs × $0.003 = $0.36/day
-  - Estimate monthly: $0.36 × 30 = $10.80/month
-  - Verify credit card on file and billing alerts set
-  - Set up quota alerts (e.g., warning at 80% usage)
-
-- [ ] **Check Apify API quota**
-  - Log into Apify console
-  - Review current usage and limits
-  - Calculate daily usage: 120 jobs × $0.004 = $0.48/day
-  - Estimate monthly: $0.48 × 30 = $14.40/month
-  - Verify payment method
-  - Set up usage alerts
-
-- [ ] **Document quota monitoring process**
-  - Add to weekly maintenance checklist
-  - Create dashboard or script to check usage
-  - Set up alerts for unexpected spikes
-
-**Why**: Prevent service disruption from quota exhaustion
-**Estimated effort**: 1 hour
-
----
 
 ### 2a. Fix Match Category Count Bugs (Issue #42)
 Originally three bugs; two resolved:
@@ -127,56 +101,6 @@ Currently: 40 separate API calls → Optimize to single or fewer calls
 
 ---
 
-### 5. Self-Host n8n + Database
-Currently: n8n Cloud ($30/month) → Move to self-hosted ($5-10/month VPS)
-
-- [ ] **Set up infrastructure**
-  - Provision VPS (DigitalOcean, Linode, or AWS Lightsail)
-  - Recommended: 2GB RAM, 50GB storage, $10-12/month
-  - Install Docker and Docker Compose
-  - Set up SSL certificate (Let's Encrypt)
-
-- [ ] **Deploy n8n stack**
-  - Use official n8n Docker Compose configuration
-  - Include PostgreSQL container for database
-  - Configure persistent volumes for data
-  - Set up environment variables and secrets
-  - Reference: https://docs.n8n.io/hosting/installation/docker/
-
-- [ ] **Migrate workflows**
-  - Export workflows from n8n Cloud (JSON)
-  - Import into self-hosted instance
-  - Reconfigure credentials (not exported)
-  - Test all four workflows end-to-end (Main, Loop Companies, Loop Jobs, Send Email)
-
-- [ ] **Migrate database**
-  - Export data tables from n8n Cloud
-  - Import into self-hosted PostgreSQL
-  - Verify data integrity
-  - Update workflow connections to new database
-
-- [ ] **Configure monitoring**
-  - Set up uptime monitoring (UptimeRobot, Healthchecks.io)
-  - Configure email alerts for downtime
-  - Set up log aggregation (optional)
-  - Create backup script for PostgreSQL
-
-- [ ] **Update DNS and access**
-  - Point domain to VPS (if using custom domain)
-  - Configure firewall (allow only necessary ports)
-  - Set up SSH key authentication
-  - Disable password authentication
-
-**Why**: Reduce hosting costs by 60-70% ($30/month → $10-12/month)
-**Estimated effort**: 6-8 hours (one-time setup)
-**Monthly savings**: $18-20
-
-**Alternative**: Keep n8n Cloud, only self-host database
-- Lighter migration (just database)
-- Still save ~$15/month on data storage
-- Keep n8n convenience and updates
-
----
 
 ## 🔧 Operational Improvements
 
@@ -232,35 +156,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 
 ---
 
-### 7. Monitoring & Alerting
-- [ ] **Set up execution monitoring**
-  - Create n8n workflow for monitoring
-  - Check: Main v6.1 ran in last 24 hours (query `run_reports` table for recent rows)
-  - Check: Email was sent successfully (run_reports.email_sent = true)
-  - Alert if workflow fails or doesn't run
-  - Send to email or Slack
-
-- [ ] **Create health check endpoint**
-  - Simple webhook that returns workflow status
-  - Include: last run time, jobs found, errors count
-  - Use with external monitoring (UptimeRobot)
-
-- [ ] **Cost tracking dashboard**
-  - Query Anthropic API for token usage
-  - Query Apify API for request count
-  - Calculate daily/weekly/monthly costs
-  - Alert if costs spike unexpectedly
-
-- [ ] **Quality metrics tracking**
-  - Average jobs per company
-  - AI score distribution
-  - Excellent matches per week
-  - Companies with 0 results (need review)
-
-**Why**: Proactive issue detection, cost control, quality assurance
-**Estimated effort**: 3 hours
-
----
 
 ### 8. Error Handling Enhancements
 - [ ] **Add retry logic to AI evaluation**
@@ -298,12 +193,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
   - Ensure cards render well on small screens
   - Optimize for Gmail mobile app
 
-- [ ] **Add email analytics**
-  - Track open rates (if possible)
-  - Track link clicks to job postings
-  - Include tracking pixel (optional)
-  - Generate weekly "you clicked X jobs" report
-
 - [ ] **Plain text fallback**
   - Generate plain text version of email
   - For email clients that don't support HTML
@@ -319,12 +208,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
   - Allow comma-separated email list
   - Or: Load from database table
   - Each gets personalized email (multi-profile support)
-
-- [ ] **Alternative delivery channels**
-  - Slack integration (post to private channel)
-  - Discord webhook
-  - SMS for excellent matches only (Twilio)
-  - Push notifications (future)
 
 - [ ] **Digest frequency options**
   - Daily (current)
@@ -390,12 +273,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
   - Screenshots of error messages
   - Step-by-step resolution guides
 
-- [ ] **Create runbook for daily operations**
-  - What to do if email not received
-  - How to check workflow status
-  - How to manually trigger run
-  - Who to contact for API issues
-
 **Why**: Knowledge preservation, easier onboarding
 **Estimated effort**: 2 hours
 
@@ -409,12 +286,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
   - Optimize for consistent scoring
   - Reduce false positives/negatives
   - Compare Claude Sonnet vs Haiku for cost/quality
-
-- [ ] **Add learning from user feedback**
-  - Track which jobs user applies to
-  - Use as training signal for AI
-  - Gradually improve scoring accuracy
-  - Implement feedback loop
 
 - [ ] **Add job description summarization**
   - Include AI-generated summary in card
@@ -435,14 +306,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [x] Per-profile email digest delivery
 - [x] Per-profile run stats in `run_reports`
 - [ ] **Production hardening** — test with 3+ active profiles end-to-end (planned v1.0.1)
-- [ ] **Web interface for configuration** (future)
-  - Update profile without editing database directly
-  - Manage company list via UI
-- [ ] **Team/shared mode** (future)
-  - Multiple users tracking the same company list
-  - Collaborative job board with comments
-
-**Why**: Core multi-user workflow is live; hardening and UI are the remaining gaps
+**Why**: Core multi-user workflow is live; hardening is the remaining gap
 **Estimated effort**: Production hardening 2 hours; UI 20+ hours
 
 ---
@@ -476,18 +340,15 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 1. **Fix match category count bugs** (issue #42) — correctness bug in run_reports data
 2. **Create `run_reports` table** (5a) — required for Main v6.1 Save Run Report node
 3. **Externalize remaining Apify filters** (3b) — timeRange, locationSearch, aiWorkArrangementFilter
-4. **Validate API credits** (2)
 
 ### Do Next (This Month)
 6. Database optimization (indexes + constraints)
-7. Monitoring & alerting setup
-8. Multi-user production hardening (test 3+ profiles)
+7. Multi-user production hardening (test 3+ profiles)
 9. Error handling enhancements (try/catch in Code nodes, retry logic)
 
 ### Consider (Next Quarter)
 10. Batch Apify requests (cost savings)
-11. Self-host n8n (bigger cost savings)
-12. AI improvements
+11. AI improvements
 
 ### Future/Maybe
 13. Direct ATS integrations
@@ -502,13 +363,9 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [ ] **Guard `If no matches` preferences parse** — condition expression `JSON.parse($('Start').all()[1].json.preferences).notifications.send_empty_digest` crashes if `preferences` is null, missing, or malformed JSON; wrap in IIFE try/catch defaulting to `false`
 - [ ] **Create `run_reports` table** from `tables/template_run_reports.csv` schema (required for v0.6.0)
 - [ ] Add unique constraint to email_queue table
-- [ ] Set up uptime monitoring (UptimeRobot free tier)
-- [ ] Create simple health check webhook
 - [ ] Document actual company list in repository
 - [ ] Test email rendering in mobile Gmail
 - [ ] Add database indexes
-- [ ] Set up Anthropic usage alerts
-- [ ] Set up Apify usage alerts
 
 ---
 
@@ -544,13 +401,7 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - Implement and test batching
 - Monitor cost savings
 
-**Month 3** (12 hours)
-- Plan self-hosting migration
-- Set up infrastructure
-- Migrate workflows and data
-- Monitor stability
-
-**Total initial investment**: ~33 hours over 3 months
+**Total initial investment**: ~21 hours over 2 months
 **Ongoing maintenance**: 1-2 hours/month
 
 ---
@@ -568,7 +419,6 @@ New table added in v0.6.0 — must be created in n8n before Main v6.1 can persis
 - [x] Daily runs scheduled — Schedule Trigger in Main v6.1 fires at hour 7
 - [ ] `run_reports` table created in n8n instance (5a)
 - [ ] Match category count bugs fixed (issue #42)
-- [ ] Monitoring and alerts configured
 - [ ] Database optimized with indexes
 - [ ] Tested with full 40 company list across 2+ profiles
 - [ ] Email quality validated
