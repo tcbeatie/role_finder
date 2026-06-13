@@ -2,6 +2,18 @@
 
 ## 🚀 High Priority (Production Readiness)
 
+### 0. ⏰ Migrate `Validate_Apify_Data.json` off deprecated Apify fields — DEADLINE 2026-06-22
+The `career-site-job-listing-api` actor (`s3dtSTZSZWFtAVLn5`) removes its legacy output field names on **2026-06-22**. The four production workflows (Main v6.2, Loop Companies v5.3, Loop Jobs v5.3, Send Email v5.2) are already compliant, but `Validate_Apify_Data.json`'s "Save Apify data" node still reads `job.ai_salary_minvalue`/`maxvalue`/`unittext`, `job.locations_raw`, and `job.remote_derived` (the last already broken — field removed).
+
+- [ ] Patch it mirroring the Loop Companies "Save Apify data" fix: underscored salary (`ai_salary_min_value`/`_max_value`/`_unit_text`), `locations` (was `locations_raw`), derive remote from `ai_work_arrangement`
+- [ ] **OR** retire the workflow if it's a stale test harness no longer in use
+
+**Why**: Hard external deadline — salary/location reads silently return null/undefined after 2026-06-22
+**Estimated effort**: 20 min (patch) or 2 min (delete)
+**Tracking**: Apify breaking-change recovery (changelog: career-site-job-listing-api)
+
+---
+
 ### ~~1. Schedule Daily Runs~~ ✅ DONE
 Main v6.1 has a `Schedule Trigger` node wired to `Load Profiles`, configured to fire at hour 7 daily. Both `Start` (manual) and `Schedule Trigger` feed the same pipeline.
 
@@ -37,13 +49,13 @@ Companies moved to `companies` database table with profile_id foreign key. Main 
 ---
 
 ### 3b. Externalize Remaining Apify Filters
-`titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. Three filters still hardcoded in Loop Companies v5.2:
+`titleSearch`/`titleExclusionSearch` externalized to `target_criteria.apify_filters` in v0.5.0. In **Loop Companies v5.3**, `aiWorkArrangementFilter` was **removed** from the Build Request (discovery broadened; work arrangement now judged by AI `location_fit`). Remaining hardcoded filters:
 
 - [ ] **Externalize `timeRange`** — move from Build Request node to `apify_filters.timeRange`
 - [ ] **Externalize `locationSearch`** — move from Build Request node to `apify_filters.locationSearch`
-- [ ] **Externalize `aiWorkArrangementFilter`** — move from Build Request node to `apify_filters.aiWorkArrangementFilter`
+- [ ] **Refactor `aiWorkArrangementFilter` (removed in v5.3)** — decide whether to re-introduce as a per-user `apify_filters.aiWorkArrangementFilter`. Note the Apify actor changed this input to an array (`On-site`/`Hybrid`/`Remote OK`/`Remote Solely`), replacing the legacy remote-only boolean — design around the new schema, not the old hardcoded value.
 
-All three should read from `_context_target_criteria.apify_filters` exactly as `titleSearch` does. No schema changes needed — the JSON keys already exist in the documented `target_criteria` structure.
+`timeRange` and `locationSearch` should read from `_context_target_criteria.apify_filters` exactly as `titleSearch` does (the JSON keys already exist in the documented `target_criteria` structure).
 
 **Why**: Per-user location/arrangement/timeframe filters without workflow edits; required for proper multi-user support
 **Estimated effort**: 1-2 hours

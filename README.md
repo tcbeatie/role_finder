@@ -29,7 +29,7 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 - 📧 **Professional Digests**: HTML email with best matches first
 - 🔄 **Fault Tolerant**: Company-by-company processing survives individual failures
 - 💾 **Complete Tracking**: Raw job data, AI evaluations, and email history preserved
-- 📊 **Cost Efficient**: ~$1.84/day
+- 📊 **Cost-Efficient**: ~$5/user/month at fleet scale (~$0.02–0.03/job + flat subscriptions)
 - 🏗️ **Production Ready**: Comprehensive documentation, error handling, monitoring queries
 
 ---
@@ -59,7 +59,7 @@ RoleFinder is a production-grade automation system built on n8n that monitors ta
 
 | Feature | Self-Hosted (This Repo) | Managed Service |
 |---------|------------------------|-----------------|
-| **Cost** | ~$55/month (API costs only) | Contact for pricing |
+| **Cost** | ~$42/month (mostly the flat $39 Apify subscription) | Contact for pricing |
 | **Setup Time** | 4-6 hours initial setup | 0 hours (done for you) |
 | **Maintenance** | Your responsibility | Fully managed |
 | **Support** | Best-effort via GitHub | Dedicated support channel |
@@ -111,15 +111,15 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 │           3. For each profile:                              │
 │              a. Load Companies (filtered by profile_id)     │
 │              b. Merge Profile+Companies                     │
-│              c. Call Loop Companies v5.2                    │
+│              c. Call Loop Companies v5.3                    │
 │              d. Merge Profile+Done                          │
-│              e. Call Send Email v5.1                        │
+│              e. Call Send Email v5.2                        │
 │              f. Save run report row to run_reports table    │
 │           4. After all profiles: send admin summary email   │
 └────┬────────────────────────────────────────────────────┬───┘
      │ Passes profile+companies array ↓                   │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 1: Loop Companies v5.2                            │
+│  WORKFLOW 1: Loop Companies v5.3                            │
 │  Purpose: Discover jobs from target companies               │
 │  Input:   Profile+companies array from Main (concatenated)  │
 │  Output:  Raw jobs → database, enriched jobs → Loop Jobs    │
@@ -127,7 +127,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └────────────────┬────────────────────────────────────────────┘
                  │ Calls for each company ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 2: Loop Jobs v5.2                                 │
+│  WORKFLOW 2: Loop Jobs v5.3                                 │
 │  Purpose: AI evaluation and HTML card generation            │
 │  Input:   Jobs with _context_* fields (incl. profile data)  │
 │  Output:  Formatted job cards → email_queue table           │
@@ -135,7 +135,7 @@ RoleFinder uses a four-workflow pipeline with a top-level orchestrator that sepa
 └─────────────────────────────────────────────────────────────┘
      │ When all companies complete, Main calls ↓          │
 ┌─────────────────────────────────────────────────────────────┐
-│  WORKFLOW 3: Send Email v5.1                                │
+│  WORKFLOW 3: Send Email v5.2                                │
 │  Purpose: Aggregate and deliver email digest                │
 │  Input:   workflow_run_id + email from Main                 │
 │  Output:  Professional HTML email via SMTP + status         │
@@ -164,7 +164,7 @@ Candidate profiles are stored in the `candidate_profile` database table, not har
 Single workflow run can process multiple users sequentially.
 
 **Architecture**:
-1. **Load Profiles** node retrieves ALL profiles from `candidate_profile` table
+1. **Load Profiles** node retrieves all **active** profiles from the `candidate_profile` table (rows with `status` = `Disabled` are skipped)
 2. **Loop Over Profiles** node iterates through each profile (batch size: 1)
 3. For each profile iteration:
    - **Load Companies** filters companies WHERE profile_id = current profile
@@ -187,22 +187,22 @@ Single workflow run can process multiple users sequentially.
 
 **Main v6.2 (14 nodes)** - Top-level orchestrator with multi-profile support and run reporting
 - Entry point via manual trigger or cron schedule
-- Loads ALL candidate profiles from `candidate_profile` database table
+- Loads candidate profiles from the `candidate_profile` database table, excluding any with `status` = `Disabled`
 - Loops over each profile sequentially (enables multi-user support)
 - For each profile:
   - Records iteration start time (`Set Start Time`)
   - Loads companies filtered by profile_id
   - Merges profile with companies into concatenated array
-  - Calls Loop Companies v5.2 sub-workflow (passes profile+companies)
+  - Calls Loop Companies v5.3 sub-workflow (passes profile+companies)
   - Waits for all companies to complete processing
   - Merges profile with completion data
-  - Calls Send Email v5.1 sub-workflow (passes workflow_run_id and profile)
+  - Calls Send Email v5.2 sub-workflow (passes workflow_run_id and profile)
   - Builds a per-profile run report row (`Build Run Report`)
   - Saves run report to `run_reports` data table (`Save Run Report`)
 - After all profiles complete: generates and sends an admin summary email (`Build Summary Email`) with grand totals across all profiles
 - Single workflow run can process multiple users
 
-**Loop Companies v5.2 (15 nodes)** - Job discovery
+**Loop Companies v5.3 (15 nodes)** - Job discovery
 - Receives concatenated profile+companies array from Main workflow
 - Companies are pre-filtered by profile_id in Main's Load Companies node
 - Splits array: extracts profile (index 0) and companies (index 1+)
@@ -213,11 +213,13 @@ Single workflow run can process multiple users sequentially.
   - Calls Apify API to discover jobs (with dynamic filters)
   - Saves raw job data immediately to `jobs` table (backup path)
   - Enriches jobs with `_context_*` fields including profile data
-  - Calls Loop Jobs v5.2 sub-workflow with enriched job data
+  - Calls Loop Jobs v5.3 sub-workflow with enriched job data
 - Handles API errors and no-results gracefully
 - Returns summary to Main when all companies complete
+- **v5.3 — Apify breaking-change recovery**: reads the `career-site-job-listing-api` actor's renamed salary output fields (`ai_salary_min_value` / `ai_salary_max_value` / `ai_salary_unit_text`) ahead of the **2026-06-22** removal of the legacy `ai_salary_minvalue`/`maxvalue`/`unittext` names
+- **v5.3 — broadened discovery**: the Apify request no longer hard-codes an `aiWorkArrangementFilter`, so on-site/hybrid/remote roles are all returned and work arrangement is judged downstream by AI scoring rather than filtered at the source
 
-**Loop Jobs v5.2 (11 nodes)** - AI evaluation with dynamic scoring and per-job error handling
+**Loop Jobs v5.3 (11 nodes)** - AI evaluation with dynamic scoring and per-job error handling
 - Receives jobs with `_context_*` fields from Loop Companies
 - Uses `_context_resume_text` from parent (no hardcoded profile)
 - Parses `_context_target_criteria.ai_scoring_criteria` for dynamic prompt construction
@@ -231,8 +233,10 @@ Single workflow run can process multiple users sequentially.
   - Saves to `email_queue` table with `workflow_run_id`
   - On AI or parse error: logs error row to `errors` table and continues loop
 - Returns to Loop Companies when all jobs complete
+- **v5.3 — Apify breaking-change recovery**: reads the renamed salary fields (`ai_salary_min_value` / `ai_salary_max_value`) and `locations` (was `locations_raw`) in both the AI prompt and the job-card formatter, and derives remote status from `ai_work_arrangement` (the `remote_derived` field was removed) — ahead of the **2026-06-22** deprecation
+- **v5.3 — reliability**: the AI call sets `maxTokens: 4096` (prevents truncated evaluation JSON), and the Merge node uses `fuzzyCompare` for robust `job_id`↔`id` matching across string/number types
 
-**Send Email v5.1 (12 nodes)** - Email delivery with tri-path execution
+**Send Email v5.2 (12 nodes)** - Email delivery with tri-path execution
 - Receives `workflow_run_id` and `email` from Main workflow
 - Email address dynamically extracted from profile data
 - **Three execution paths:**
@@ -248,7 +252,7 @@ Single workflow run can process multiple users sequentially.
 - **Returns structured status object to parent workflow**
 - **Ensures Main workflow loop continues in all three paths**
 
-### Status Response Pattern (v5.1)
+### Status Response Pattern (v5.2)
 
 Send Email implements tri-path execution with consistent status responses, ensuring the Main workflow's Loop Over Profiles never hangs:
 
@@ -324,7 +328,7 @@ Every job is traceable through the entire pipeline via workflow_run_id:
 5. **Tracking**: Email footer shows workflow_run_id for reference
 
 Database tables:
-- `candidate_profile` - User profiles with resume and target criteria
+- `candidate_profile` - User profiles with resume and target criteria; a `status` of `Disabled` excludes the profile from runs
 - `companies` - Target companies to monitor
 - `jobs` - Raw job data with searchable fields
 - `email_queue` - Formatted job cards linked by workflow_run_id
@@ -453,16 +457,29 @@ AI Assessment: Perfect match - infrastructure focus...
 
 ---
 
-## Cost Analysis (Example)
+## Cost Analysis
 
-**Daily Breakdown (monitoring 40 companies, ~120 jobs/day):**
-- Apify API: ~$0.48 (120 jobs × $0.004)
-- Claude AI: ~$0.36 (120 jobs × $0.003)
-- SMTP: $0.00 (typically free tier for most providers)
-- n8n hosting: ~$1.00/day (varies by provider)
-- **Total: ~$1.84/day** (~$55/month, ~$671/year)
+Two cost types: **per-job** (Claude evaluation, scales with jobs) and **flat monthly**
+(Apify subscription + n8n hosting). The Apify actor bills $12 / 1,000 jobs, but that
+draws down the flat **$39/mo** Apify subscription — so Apify is effectively $39/mo until
+you exceed its included volume (~$39 ÷ $0.012 ≈ **3,250 jobs/month**). Figures below are
+measured on a 27-profile fleet.
 
-**Note**: Your actual costs will vary based on the number of companies monitored and their job posting frequency.
+- **Per job (Claude Sonnet 4.6): ~$0.02–0.03** — varies with job-description length
+  (daily run ~$0.020, 7-day backfill ~$0.029)
+- **Flat monthly:** Apify **$39** (covers ~3,250 actor jobs at $12/1k) + n8n hosting
+  **~$30** (varies); SMTP free
+- **Typical daily** (24h, limit 10) — 2026-06-12: **114 jobs** · **~$2.32 Claude** ·
+  55 min · 1 excellent / 7 strong / 20 consider
+- **Single-run ceiling** — one-time 7-day backfill (2026-06-11): **369 jobs** ·
+  ~$10.87 Claude · 156 min
+
+**Fleet ≈ $130/month** (~$60 Claude + $39 Apify + ~$30 n8n) ≈ **~$5/user/month** — the
+fleet's ~3,000 jobs/mo fits inside the included Apify volume, so Apify stays flat. A
+**single self-hosted profile** (~4 jobs/day, ~120 jobs/mo) is dominated by that flat $39
+Apify fee, so **~$42/month all-in**. The 7-day backfill is the most a *single run*
+costs, not a week's worth: daily runs reset the per-company limit each day, so recurring
+volume runs higher than one wide backfill.
 
 **ROI:**
 - Time saved: 2-3 hours/day of manual searching
@@ -503,9 +520,9 @@ AI Assessment: Perfect match - infrastructure focus...
 
 - **README.md** - You're looking at it!
 - **Main.json** - Main orchestrator v6.2 (14 nodes, multi-profile support + run reporting + admin summary email)
-- **Loop_Companies.json** - Workflow 1 v5.2 (15 nodes, dynamic Apify filters)
-- **Loop_Jobs.json** - Workflow 2 v5.2 (11 nodes, dynamic AI scoring + per-job AI error handling)
-- **Send_Email.json** - Workflow 3 v5.1 (12 nodes, tri-path execution: matches / no-matches-send / no-matches-skip)
+- **Loop_Companies.json** - Workflow 1 v5.3 (15 nodes, dynamic Apify filters)
+- **Loop_Jobs.json** - Workflow 2 v5.3 (11 nodes, dynamic AI scoring + per-job AI error handling)
+- **Send_Email.json** - Workflow 3 v5.2 (12 nodes, tri-path execution: matches / no-matches-send / no-matches-skip)
 - **tables/template_run_reports.csv** - Schema template for the `run_reports` data table
 
 Each workflow JSON includes comprehensive inline comments suitable for junior developer handoff.
@@ -531,9 +548,9 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 1. **Import Workflows**
    ```bash
    # Import in this order (sub-workflows must exist before their parent):
-   # 1. Loop_Jobs.json (v5.2) - AI evaluation with dynamic scoring + error handling
-   # 2. Loop_Companies.json (v5.2) - Job discovery with dynamic filters
-   # 3. Send_Email.json (v5.1) - Email delivery with tri-path execution
+   # 1. Loop_Jobs.json (v5.3) - AI evaluation with dynamic scoring + error handling
+   # 2. Loop_Companies.json (v5.3) - Job discovery with dynamic filters
+   # 3. Send_Email.json (v5.2) - Email delivery with tri-path execution
    # 4. Main.json (v6.2) - Multi-profile orchestrator with run reporting
    ```
 
@@ -552,6 +569,7 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
      resume_text TEXT,
      target_criteria TEXT,
      preferences TEXT,
+     status VARCHAR(20),               -- "Disabled" skips this profile; empty/any other value = active
      notes TEXT
    );
 
@@ -605,6 +623,7 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
          "send_empty_digest": true
        }
      }',  -- preferences (JSON; send_empty_digest controls whether a "no matches" email is sent)
+     '',                           -- status (set to 'Disabled' to skip this profile; leave empty for active)
      'Optional notes'              -- notes
    );
    ```
@@ -627,9 +646,10 @@ Each workflow JSON includes comprehensive inline comments suitable for junior de
 6. **Update Configuration**
    - Update `fromEmail` in two places: the "Send an Email" node in Main.json and the "Send email" node in Send_Email.json — change `sender@example.com` to your actual sending address
    - Recipient email is automatically sourced from candidate_profile table
-   - Main v6.2 automatically processes all profiles (no filter needed)
-   - To limit to specific profiles, add filter in Load Profiles node
-   - Adjust scoring criteria in Loop Jobs v5.2 prompt if needed
+   - Main v6.2 automatically processes all active profiles (no filter needed)
+   - To temporarily disable a profile, set its `status` to `Disabled` in the `candidate_profile` table — Main skips it automatically
+   - To limit to specific profiles, add a further filter in the Load Profiles node
+   - Adjust scoring criteria in Loop Jobs v5.3 prompt if needed
 
 7. **Test Execution**
    ```bash
@@ -752,7 +772,7 @@ WHERE profile_id = 'default';
 The Loop Jobs workflow automatically uses your custom dimensions in AI evaluation prompts.
 
 ### Different Email Formats
-Modify HTML template in Send Email v5.1 Build Match Email node - test with pin data.
+Modify HTML template in Send Email v5.2 Build Match Email node - test with pin data.
 
 ### Multiple Recipients
 Add multiple profiles to candidate_profile table (Main v6.2 automatically processes all). Each profile receives their own personalized digest.
@@ -767,12 +787,11 @@ Change cron schedule in Main v6.2 and modify email query to include last 7 days.
 
 ## Performance Metrics
 
-**Typical Execution:**
-- Companies processed: 40
-- Jobs discovered: 100-150
-- AI evaluations: 100-150
-- Execution time: 7-8 minutes
-- Email delivery: <1 second
+**Typical daily run (measured, 27-profile fleet):**
+- Profiles processed: 27
+- Jobs discovered & AI-evaluated: ~110–120
+- Execution time: ~55 minutes (~2 jobs/min, sequential)
+- Email delivery: <1 second per profile
 
 **Success Rates:**
 - Job discovery: >95% (API availability)
@@ -787,14 +806,16 @@ Change cron schedule in Main v6.2 and modify email query to include last 7 days.
 - ✅ Production-ready four-workflow architecture with orchestrator (Main v6.2)
 - ✅ Multi-profile support (process multiple users in single run)
 - ✅ Profile externalization (clean workflow files, no PII in JSON)
+- ✅ **Profile activation toggle: `status` = `Disabled` in `candidate_profile` skips a profile without deleting it (Main v6.2)**
 - ✅ Comprehensive documentation (116KB)
 - ✅ Fault-tolerant design with error handling
-- ✅ **Tri-path execution (Send Email v5.1): matches / no-matches-send / no-matches-skip**
+- ✅ **Tri-path execution (Send Email v5.2): matches / no-matches-send / no-matches-skip**
 - ✅ **User-configurable "no matches" notifications via `preferences.notifications.send_empty_digest`**
 - ✅ **Per-run summary email with full category counts saved to `run_reports` table**
-- ✅ **Per-job AI error handling in Loop Jobs v5.2 (failures logged to `errors` table, loop continues)**
+- ✅ **Per-job AI error handling in Loop Jobs v5.3 (failures logged to `errors` table, loop continues)**
 - ✅ **Claude Sonnet 4.6 for AI evaluation (upgraded from 4.5)**
-- ✅ Cost-efficient ($1.84/day)
+- ✅ **Apify breaking-change recovery (Loop Companies v5.3 + Loop Jobs v5.3): migrated to the `career-site-job-listing-api` actor's renamed salary/location fields and removed `remote_derived` usage ahead of the 2026-06-22 deprecation**
+- ✅ Cost-efficient (~$5/user/month at fleet scale; ~$0.02–0.03/job)
 - ✅ Complete traceability and monitoring
 
 **Future Enhancements:**
@@ -827,7 +848,7 @@ This project is open source and contributions are welcome. The architecture is d
 **How to adapt RoleFinder for your own use:**
 1. Fork the repository
 2. Update the `candidate_profile` table with your resume and criteria
-3. Modify scoring criteria in Loop Jobs v5.2 to match your targets
+3. Modify scoring criteria in Loop Jobs v5.3 to match your targets
 4. Populate `companies` table with your target list
 5. Configure your own API credentials (Apify, Anthropic, SMTP)
 
@@ -918,4 +939,4 @@ Interested in having RoleFinder fully managed for you?
 
 **RoleFinder** - Intelligent role monitoring for active job-seekers.
 
-*Last Updated: May 8, 2026*
+*Last Updated: June 12, 2026*

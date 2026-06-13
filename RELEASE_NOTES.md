@@ -1,6 +1,59 @@
 # RoleFinder Release Notes
 
-## Latest Release: v1.1.0
+## Latest Release: v1.2.0
+
+**Release Date:** June 12, 2026
+**Branch:** `main`
+**Status:** Production-Ready
+
+### Overview
+
+Version 1.2.0 is primarily a **maintenance release** recovering from breaking changes to the Apify `career-site-job-listing-api` actor, which renamed several output fields and removed `remote_derived` (legacy names are removed by the actor on **2026-06-22**). All field reads in the four production workflows were migrated to the current schema. The release also adds a profile activation toggle and carries over a few reliability/quality improvements from the live workflows.
+
+### Key Changes
+
+#### Apify breaking-change recovery (Loop Companies v5.3 + Loop Jobs v5.3)
+
+The actor deprecated its legacy output field names. Both workflows now read the current names:
+
+| Old (removed 2026-06-22) | New |
+|--------------------------|-----|
+| `ai_salary_minvalue` | `ai_salary_min_value` |
+| `ai_salary_maxvalue` | `ai_salary_max_value` |
+| `ai_salary_unittext` | `ai_salary_unit_text` |
+| `locations_raw` | `locations` |
+| `remote_derived` (field removed) | derived from `ai_work_arrangement` |
+
+- ✅ **Loop Companies** "Save Apify data" — salary fields, `locations`, and remote status derived from `ai_work_arrangement`
+- ✅ **Loop Jobs** "Message a model" prompt, "Format Job Card", and output mapping — same field migration
+
+> ⚠️ `Validate_Apify_Data.json` is a non-production validation utility and still reads the deprecated fields — tracked in `TODO.md` with the 2026-06-22 deadline (patch or retire).
+
+#### Main v6.2 (was v6.1) — profile activation toggle
+
+- ✅ **Load Profiles** now filters out profiles with `status = Disabled` — disable a user without deleting their row
+- ✅ Sub-workflow calls updated to Loop Companies v5.3 and Send Email v5.2
+
+#### Loop Companies v5.3 — broadened discovery
+
+- ✅ Removed the hardcoded `aiWorkArrangementFilter` from the Apify request; all work arrangements are now returned and judged downstream by AI `location_fit` scoring (re-introducing it as a per-user filter is tracked in TODO 3b)
+
+#### Loop Jobs v5.3 — reliability
+
+- ✅ AI call sets `maxTokens: 4096` (prevents truncated evaluation JSON on long job descriptions)
+- ✅ Merge node uses `fuzzyCompare` for robust `job_id`↔`id` matching across string/number types
+
+#### Send Email v5.2 — categorization tolerance
+
+- ✅ The "strong" grouping in `Aggregate and Sort Jobs` now accepts `STRONG_MATCH` in addition to `GOOD_MATCH`
+
+#### candidate_profile table
+
+- ✅ New optional `status` column — set to `Disabled` to skip a profile; empty/any other value = active
+
+---
+
+## Previous Release: v1.1.0
 
 **Release Date:** May 8, 2026
 **Branch:** `3-send-no-jobs-today-email-if-no-jobs-found`
@@ -57,7 +110,7 @@ Existing nodes renamed for clarity:
 
 ### Overview
 
-Version 0.6.0 adds a post-run summary dashboard: after all profiles are processed each day, Main sends an admin email with grand totals across all profiles and persists a per-profile stats row to a new `run_reports` table. Send Email now returns full category counts to the parent, making historical run data complete and queryable.
+Version 1.0.0 (developed as v0.6.0) adds a post-run summary dashboard: after all profiles are processed each day, Main sends an admin email with grand totals across all profiles and persists a per-profile stats row to a new `run_reports` table. Send Email now returns full category counts to the parent, making historical run data complete and queryable.
 
 ### Key Changes
 
@@ -111,7 +164,7 @@ Version 0.5.1 adds dual-path execution to Send Email workflow, preventing workfl
 
 ### Overview
 
-Version 0.5.0 completes the externalization of scoring criteria and job discovery filters to the database. The AI evaluation system now dynamically constructs prompts from user-defined scoring dimensions stored in `candidate_profiles.target_criteria`, enabling per-user customization without workflow modifications. Job discovery filters are also partially externalized, with full externalization planned for v0.5.1.
+Version 0.5.0 completes the externalization of scoring criteria and job discovery filters to the database. The AI evaluation system now dynamically constructs prompts from user-defined scoring dimensions stored in `candidate_profiles.target_criteria`, enabling per-user customization without workflow modifications. Job discovery filters are also partially externalized; full externalization was deferred and ultimately superseded in v1.2.0 (`aiWorkArrangementFilter` was removed; `timeRange`/`locationSearch` refactor tracked in TODO 3b).
 
 ### Key Changes
 
@@ -125,7 +178,7 @@ Version 0.5.0 completes the externalization of scoring criteria and job discover
 #### Dynamic Job Discovery Filters (PARTIAL in v0.5.0)
 - ✅ `titleSearch` and `titleExclusionSearch` externalized to `target_criteria.apify_filters`
 - ✅ Loop_Companies.json (v5.1) dynamically builds Apify API requests
-- ⚠️ `timeRange`, `locationSearch`, and `aiWorkArrangementFilter` still hardcoded (planned for v0.5.1)
+- ⚠️ `timeRange`, `locationSearch`, and `aiWorkArrangementFilter` still hardcoded (later superseded in v1.2.0 — see TODO 3b)
 
 #### Profile Externalization (from v0.4.1)
 - ✅ Candidate profile data moved from workflow nodes to `candidate_profiles` database table
@@ -198,7 +251,7 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 - ✅ **Title Filters**: `titleSearch` and `titleExclusionSearch` externalized
 
 **Deferred to v0.6.0:**
-- **Remaining Hardcoded Filters**: `timeRange`, `locationSearch`, `aiWorkArrangementFilter` need externalization
+- **Remaining Hardcoded Filters**: `timeRange`, `locationSearch`, `aiWorkArrangementFilter` need externalization (superseded in v1.2.0 — `aiWorkArrangementFilter` removed; the rest tracked in TODO 3b)
 - **Error Handling**: Comprehensive try/catch blocks for JSON parsing and API failures
 - **Retry Logic**: Automatic retry for transient API failures
 - **Error Notifications**: Alert system for workflow failures
@@ -213,6 +266,25 @@ All four workflows validated using n8n MCP tools (0 critical errors):
 ---
 
 ## Version History
+
+### v1.2.0 (2026-06-12)
+
+**Changed:**
+- Main.json: v6-1 → v6-2 — Load Profiles filters out `status = Disabled` profiles; calls Loop Companies v5.3 + Send Email v5.2
+- Loop_Companies.json: v5.2 → v5.3 — Apify field migration (`ai_salary_*_value`/`_unit_text`, `locations`, remote via `ai_work_arrangement`); removed the hardcoded `aiWorkArrangementFilter` (broadened discovery)
+- Loop_Jobs.json: v5.2 → v5.3 — Apify field migration (AI prompt + Format Job Card + output); added `maxTokens: 4096`; Merge node `fuzzyCompare: true`
+- Send_Email.json: v5.1 → v5.2 — "strong" grouping accepts `STRONG_MATCH` || `GOOD_MATCH`
+- `candidate_profile` table: new optional `status` column (`Disabled` skips a profile)
+- README.md: version references (v6.2 / v5.3 / v5.2), profile `status` filter docs + schema, Apify recovery + broadened-discovery + reliability notes
+- TODO.md: reframed item 3b (`aiWorkArrangementFilter` is now a refactor against the new array input, not a simple externalize); added dated High-Priority item to migrate or retire `Validate_Apify_Data.json` before 2026-06-22
+
+**Fixed:**
+- Apify `career-site-job-listing-api` breaking changes — renamed salary/location output fields and the removed `remote_derived` would return null/undefined after 2026-06-22; the four production workflows now read the current field names
+
+**Known issues:**
+- `Validate_Apify_Data.json` (non-production utility) still reads deprecated Apify fields — tracked in `TODO.md`
+
+---
 
 ### v1.1.0 (2026-05-08)
 
