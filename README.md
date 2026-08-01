@@ -191,7 +191,7 @@ Single workflow run can process multiple users sequentially.
 - Loops over each profile sequentially (enables multi-user support)
 - For each profile:
   - Records iteration start time (`Set Start Time`)
-  - Loads companies filtered by profile_id
+  - Loads companies filtered by profile_id (row limit defaults to 50; project default is set to 100 — raise it further if you track more companies)
   - Merges profile with companies into concatenated array
   - Calls Loop Companies v5.3 sub-workflow (passes profile+companies)
   - Waits for all companies to complete processing
@@ -334,6 +334,17 @@ Database tables:
 - `email_queue` - Formatted job cards linked by workflow_run_id
 - `errors` - API failures and no-results tracking
 - `run_reports` - Per-profile run stats (counts, timing, email status) saved by Main after each Send Email call; see `tables/template_run_reports.csv` for schema
+
+### Scaling Beyond n8n Data Tables
+
+n8n Data Tables (the default here) are great for getting started and for a relatively small number of users — no external account needed, zero extra setup. But n8n enforces a **50MB storage cap shared across all data tables in an instance**, and `jobs` and `email_queue` are the ones most likely to approach it over time, since every run adds rows and nothing is pruned automatically (see [Monthly Maintenance](#monthly-maintenance)).
+
+If you outgrow that ceiling, n8n has a native **Airtable** node, so swapping a Data Table node for it is a config change, not a rewrite. Two gotchas worth knowing before you do:
+
+- **Airtable Select fields reject unknown values.** Unlike a Data Table's plain string columns, a Single/Multi Select field validates writes against its existing list of options. Enable the Airtable node's **Typecast** option so new values (a new company, a new location string) auto-create an option instead of throwing a `422 INVALID_VALUE_FOR_COLUMN` error.
+- **Typecast doesn't convert between types.** It only coerces within a field's actual type (e.g., a numeric string into Number). A boolean flag like "is remote" needs an Airtable **Checkbox** column, not **Number** — writing `"true"`/`"false"` into a Number field still fails even with typecast on.
+
+This project's shipped workflows keep n8n Data Tables as the default on purpose — it avoids requiring an Airtable account just to get started. Treat the migration as something to opt into once you actually approach the row cap, not a default setup step.
 
 ---
 
