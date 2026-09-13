@@ -731,7 +731,18 @@ WHERE processed_at >= CURRENT_DATE - INTERVAL '7 days';
 
 ---
 
+##
 ## Extending RoleFinder
+##
+
+### Supporting Multiple Users
+Add multiple profiles to `candidate_profile` table (each with unique email). Main v6.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
+
+Out of the box, RoleFinder is built for one person, and for one person it rocks: no UI, no accounts, nothing to administer. A few more profiles work the same way: add rows to `candidate_profile` (unique email each) and Main v6.2 processes all of them per run.
+
+Running it for a community is a different job. Users need to sign in as themselves, edit their own resume and title filters, and have those edits reviewed before they touch the live profile, with a Slack trail of who changed what. That's a thin admin layer around the workflows in this repo, and it's the setup behind the [managed service](#managed-service-option); it isn't part of the open-source project.
+
+If you build your own, the stack is your call. Mine is [Clerk](https://clerk.com) for auth and a small [Next.js](https://nextjs.org) app on [Vercel](https://vercel.com), talking to n8n over a shared-secret webhook. The pattern matters more than the vendors: never let the browser name the user, stage every edit, and keep test and production workflows as twins.
 
 ### Adding More Companies
 Simply add rows to companies table - no workflow changes needed.
@@ -760,9 +771,6 @@ SET resume_text = 'Updated resume text...',
 WHERE profile_id = 'default';
 ```
 Both job discovery filters and AI scoring dimensions are dynamically read from this field.
-
-### Supporting Multiple Users
-Add multiple profiles to `candidate_profile` table (each with unique email). Main v6.2 automatically processes all profiles in a single run via the Loop Over Profiles node. No workflow modifications needed.
 
 ### Customizing AI Criteria
 Update the `ai_scoring_criteria` section in `target_criteria` - no workflow changes needed:
